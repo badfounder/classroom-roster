@@ -115,9 +115,17 @@ export default async function ClassDetailPage({
         <ClassRosterPanel classId={cls.id} />
       </section>
 
-      <section className="mt-12 border-t border-zinc-200 pt-10 text-sm text-zinc-600 dark:text-zinc-400 dark:border-zinc-700">
-        <span className="font-medium text-zinc-900 dark:text-zinc-50">Next:</span> seating chart on
-        this classroom photo.
+      <section className="mt-12 border-t border-zinc-200 pt-10 dark:border-zinc-700">
+        <h2 className="text-sm font-medium text-zinc-900 dark:text-zinc-50">Seating chart</h2>
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          Drag student cards onto the classroom photo. Positions autosave.
+        </p>
+        <Link
+          href={`/dashboard/classes/${cls.id}/seating`}
+          className="mt-3 inline-block rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+        >
+          Open seating chart
+        </Link>
       </section>
     </div>
   );
