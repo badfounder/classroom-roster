@@ -85,6 +85,110 @@ export async function uploadRosterCsv(
   return { info: `Added ${inserted} roster row(s).` };
 }
 
+export async function updateStudentByTeacher(
+  classId: string,
+  studentId: string,
+  _prev: RosterFormState,
+  formData: FormData
+): Promise<RosterFormState> {
+  const session = await getServerSession(authOptions);
+  const teacherId = session?.user?.id;
+  if (!teacherId) {
+    return { error: "You must be signed in." };
+  }
+  if (!(await assertOwnsClass(teacherId, classId))) {
+    return { error: "Class not found." };
+  }
+
+  const legalName = String(formData.get("legal_name") ?? "").trim();
+  const preferredName = String(formData.get("preferred_name") ?? "").trim();
+  const phonetic = String(formData.get("phonetic_spelling") ?? "").trim();
+  const pronouns = String(formData.get("pronouns") ?? "").trim();
+  const funFact = String(formData.get("fun_fact") ?? "").trim();
+  const clearReview = formData.get("clear_review") === "on";
+  const rawPhoto = formData.get("photo");
+  const photo =
+    rawPhoto instanceof File && rawPhoto.size > 0 ? rawPhoto : null;
+
+  if (!legalName) {
+    return { error: "Legal name is required." };
+  }
+
+  const pool = getPool();
+  const { rows: existing } = await pool.query<{ photo_path: string | null }>(
+    `SELECT s.photo_path
+     FROM students s
+     JOIN classes c ON c.id = s.class_id
+     WHERE s.id = $1 AND s.class_id = $2 AND c.teacher_id = $3`,
+    [studentId, classId, teacherId]
+  );
+  if (!existing[0]) {
+    return { error: "Student not found." };
+  }
+  const previousPhoto = existing[0].photo_path;
+
+  const client = await pool.connect();
+  let newPhotoPath: string | null = null;
+
+  try {
+    await client.query("BEGIN");
+
+    await client.query(
+      `UPDATE students
+       SET legal_name = $1,
+           preferred_name = $2,
+           phonetic_spelling = $3,
+           pronouns = $4,
+           fun_fact = $5,
+           submission_review = CASE WHEN $6::boolean THEN NULL ELSE submission_review END
+       WHERE id = $7`,
+      [
+        legalName,
+        preferredName.length > 0 ? preferredName : null,
+        phonetic.length > 0 ? phonetic : null,
+        pronouns.length > 0 ? pronouns : null,
+        funFact.length > 0 ? funFact : null,
+        clearReview,
+        studentId,
+      ]
+    );
+
+    if (photo) {
+      const buffer = await studentPhotoToJpegBuffer(photo);
+      const fileName = `photo-${randomUUID()}.jpg`;
+      const relative = `students/${studentId}/${fileName}`;
+      await ensureDir(absoluteUploadPath(`students/${studentId}`));
+      await fs.writeFile(absoluteUploadPath(relative), buffer);
+      await client.query(
+        `UPDATE students SET photo_path = $1 WHERE id = $2`,
+        [relative, studentId]
+      );
+      newPhotoPath = relative;
+    }
+
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    if (newPhotoPath) {
+      await unlinkQuiet(absoluteUploadPath(newPhotoPath));
+    }
+    if (e instanceof Error) {
+      return { error: e.message };
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+
+  if (newPhotoPath && previousPhoto && previousPhoto !== newPhotoPath) {
+    await unlinkQuiet(absoluteUploadPath(previousPhoto));
+  }
+
+  revalidatePath(`/dashboard/classes/${classId}`);
+  revalidatePath(`/dashboard/classes/${classId}/students/${studentId}`);
+  return { info: "Saved." };
+}
+
 export async function deleteStudentAction(classId: string, studentId: string): Promise<void> {
   const session = await getServerSession(authOptions);
   const teacherId = session?.user?.id;

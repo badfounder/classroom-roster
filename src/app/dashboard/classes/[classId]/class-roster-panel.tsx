@@ -81,11 +81,19 @@ export async function ClassRosterPanel({ classId }: { classId: string }) {
                       : "No roster match"}
                   </span>
                 </span>
-                <DeleteStudentButton
-                  classId={classId}
-                  studentId={s.id}
-                  label={s.legal_name}
-                />
+                <span className="flex items-center gap-3">
+                  <Link
+                    href={`/dashboard/classes/${classId}/students/${s.id}`}
+                    className="text-sm font-medium text-zinc-900 underline dark:text-zinc-100"
+                  >
+                    Edit
+                  </Link>
+                  <DeleteStudentButton
+                    classId={classId}
+                    studentId={s.id}
+                    label={s.legal_name}
+                  />
+                </span>
               </li>
             ))}
           </ul>
@@ -130,7 +138,15 @@ export async function ClassRosterPanel({ classId }: { classId: string }) {
                     ) : null}
                   </div>
                 </div>
-                <DeleteStudentButton classId={classId} studentId={s.id} label={s.legal_name} />
+                <span className="flex items-center gap-3">
+                  <Link
+                    href={`/dashboard/classes/${classId}/students/${s.id}`}
+                    className="text-sm font-medium text-zinc-900 underline dark:text-zinc-100"
+                  >
+                    Edit
+                  </Link>
+                  <DeleteStudentButton classId={classId} studentId={s.id} label={s.legal_name} />
+                </span>
               </li>
             ))}
           </ul>
