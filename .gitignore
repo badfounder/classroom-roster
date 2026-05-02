@@ -30,8 +30,15 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (keep .env.example committed)
 .env*
+!.env.example
+
+# uploaded photos (local dev / optional mirror of VPS layout)
+uploads/
+
+# claude code worktrees / local agent state
+.claude/
 
 # vercel
 .vercel
