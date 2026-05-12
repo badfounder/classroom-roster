@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth-options";
 import { getPool } from "@/lib/db";
 import { EditStudentForm } from "./edit-student-form";
+import { Card, NavBack, PageHeader } from "@/components/ui";
 
 export default async function EditStudentPage({
   params,
@@ -47,43 +47,46 @@ export default async function EditStudentPage({
     : null;
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-16">
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
-        <Link
-          href={`/dashboard/classes/${classId}`}
-          className="font-medium text-zinc-900 underline dark:text-zinc-100"
-        >
-          ← {student.class_name}
-        </Link>
-      </p>
+    <div className="mx-auto w-full max-w-3xl px-6 py-12">
+      <NavBack href={`/dashboard/classes/${classId}`} label={student.class_name} />
+      <div className="mt-6">
+        <PageHeader
+          eyebrow="Edit student"
+          title={student.preferred_name ?? student.legal_name}
+          description={`Legal name on file: ${student.legal_name}`}
+        />
+      </div>
 
-      <h1 className="mt-6 text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-        Edit student
-      </h1>
-
-      {photoSrc ? (
-        <div className="mt-6 max-w-xs overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900">
-          {/* eslint-disable-next-line @next/next/no-img-element -- authenticated API route */}
-          <img
-            src={photoSrc}
-            alt={`Photo of ${student.preferred_name ?? student.legal_name}`}
-            className="max-h-64 w-full object-contain"
-          />
+      <Card>
+        <div className="flex flex-wrap items-start gap-6">
+          {photoSrc ? (
+            <div className="w-40 flex-shrink-0 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-950">
+              {/* eslint-disable-next-line @next/next/no-img-element -- authenticated API route */}
+              <img
+                src={photoSrc}
+                alt={`Photo of ${student.preferred_name ?? student.legal_name}`}
+                className="aspect-square w-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="flex h-40 w-40 flex-shrink-0 items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/40">
+              No photo on file
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <EditStudentForm
+              classId={classId}
+              studentId={student.id}
+              legalName={student.legal_name}
+              preferredName={student.preferred_name ?? ""}
+              phonetic={student.phonetic_spelling ?? ""}
+              pronouns={student.pronouns ?? ""}
+              funFact={student.fun_fact ?? ""}
+              hasReviewFlag={student.submission_review != null}
+            />
+          </div>
         </div>
-      ) : (
-        <p className="mt-6 text-sm text-zinc-500 dark:text-zinc-400">No photo on file.</p>
-      )}
-
-      <EditStudentForm
-        classId={classId}
-        studentId={student.id}
-        legalName={student.legal_name}
-        preferredName={student.preferred_name ?? ""}
-        phonetic={student.phonetic_spelling ?? ""}
-        pronouns={student.pronouns ?? ""}
-        funFact={student.fun_fact ?? ""}
-        hasReviewFlag={student.submission_review != null}
-      />
+      </Card>
     </div>
   );
 }

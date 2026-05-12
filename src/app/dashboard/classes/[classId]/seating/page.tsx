@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth-options";
 import { getPool } from "@/lib/db";
 import { SeatingChart } from "./seating-chart";
+import { NavBack, PageHeader } from "@/components/ui";
 
 export default async function SeatingChartPage({
   params,
@@ -77,30 +77,23 @@ export default async function SeatingChartPage({
     : null;
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-12">
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
-        <Link
-          href={`/dashboard/classes/${classId}`}
-          className="font-medium text-zinc-900 underline dark:text-zinc-100"
-        >
-          ← {cls.name}
-        </Link>
-      </p>
-
-      <div className="mt-4 mb-8 flex flex-wrap items-baseline justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-          Seating chart
-        </h1>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          Drag cards from the sidebar onto the canvas. Positions autosave on drop. Click a placed
-          card for details.
-        </p>
+    <div className="mx-auto w-full max-w-7xl px-6 py-12">
+      <NavBack href={`/dashboard/classes/${classId}`} label={cls.name} />
+      <div className="mt-6">
+        <PageHeader
+          eyebrow="Seating chart"
+          title={cls.name}
+          description="Drag cards from the sidebar onto the canvas. Positions autosave on drop. Click a placed card for details."
+        />
       </div>
 
       {students.length === 0 ? (
-        <p className="rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-300">
-          No students in this class yet. Add some via the roster panel before building a chart.
-        </p>
+        <div className="rounded-2xl border border-dashed border-zinc-300 bg-white px-8 py-16 text-center dark:border-zinc-700 dark:bg-zinc-900/40">
+          <p className="text-base font-medium text-zinc-900 dark:text-zinc-50">No students yet</p>
+          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+            Add students via the roster panel before building a chart.
+          </p>
+        </div>
       ) : (
         <SeatingChart
           classId={classId}

@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint src",
     "db:migrate": "node scripts/migrate.mjs",
     "check-orphans": "node scripts/check-orphans.mjs"
   },

@@ -13,6 +13,7 @@ import {
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { placeStudent, removeFromChart } from "./seating-actions";
+import { Alert, Button } from "@/components/ui";
 
 type Student = {
   id: string;
@@ -129,12 +130,9 @@ export function SeatingChart({
   return (
     <DndContext sensors={sensors} onDragEnd={onDragEnd}>
       {errorMsg ? (
-        <p
-          className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-200"
-          role="alert"
-        >
-          {errorMsg}
-        </p>
+        <div className="mb-4">
+          <Alert variant="error">{errorMsg}</Alert>
+        </div>
       ) : null}
 
       <div className="flex flex-col gap-6 lg:flex-row">
@@ -168,25 +166,36 @@ export function SeatingChart({
 function Sidebar({ students }: { students: Student[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: SIDEBAR_DROPPABLE_ID });
   return (
-    <div
+    <aside
       ref={setNodeRef}
-      className={`flex w-full flex-shrink-0 flex-col gap-2 rounded-lg border p-3 lg:w-64 ${
+      className={`flex w-full flex-shrink-0 flex-col gap-3 rounded-2xl border p-4 lg:w-72 lg:max-h-[calc(100vh-12rem)] lg:overflow-y-auto ${
         isOver
           ? "border-zinc-400 bg-zinc-100 dark:border-zinc-500 dark:bg-zinc-800"
-          : "border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/40"
+          : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
       }`}
     >
-      <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-        Unplaced ({students.length})
-      </h3>
+      <div>
+        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+          Unplaced ({students.length})
+        </h3>
+        <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+          Drag onto the canvas, or drop a placed card here to remove it.
+        </p>
+      </div>
       {students.length === 0 ? (
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          All students are on the chart. Drop a card here to remove it.
+        <p className="rounded-lg bg-zinc-50 px-3 py-4 text-center text-sm text-zinc-500 dark:bg-zinc-900/40 dark:text-zinc-400">
+          Everyone is placed. ✨
         </p>
       ) : (
-        students.map((s) => <DraggableCard key={s.id} student={s} variant="sidebar" />)
+        <ul className="flex flex-col gap-2">
+          {students.map((s) => (
+            <li key={s.id}>
+              <DraggableCard student={s} variant="sidebar" />
+            </li>
+          ))}
+        </ul>
       )}
-    </div>
+    </aside>
   );
 }
 
@@ -210,10 +219,10 @@ function Canvas({
         setNodeRef(node);
         canvasRef.current = node;
       }}
-      className={`relative aspect-video min-h-[20rem] w-full flex-1 overflow-hidden rounded-lg border bg-zinc-100 dark:bg-zinc-900 ${
+      className={`relative aspect-video min-h-[28rem] w-full flex-1 overflow-hidden rounded-2xl border-2 bg-zinc-100 shadow-sm dark:bg-zinc-950 ${
         isOver
           ? "border-zinc-500 dark:border-zinc-400"
-          : "border-zinc-200 dark:border-zinc-700"
+          : "border-zinc-200 dark:border-zinc-800"
       }`}
     >
       {photoSrc ? (
@@ -225,8 +234,9 @@ function Canvas({
           draggable={false}
         />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center text-sm text-zinc-500 dark:text-zinc-400">
-          No classroom photo. Cards still drop here, but a photo helps anchor positions.
+        <div className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
+          No classroom photo. Upload one on the class page to anchor your seating layout — cards
+          still drop here without it.
         </div>
       )}
       {placed.map((s) => {
@@ -261,7 +271,7 @@ function DraggableCard({
   });
 
   const baseClasses =
-    "flex items-center gap-2 rounded-md border bg-white p-1.5 text-xs shadow-sm dark:bg-zinc-800 select-none";
+    "flex items-center gap-2.5 rounded-xl border bg-white px-3 py-2 shadow-sm dark:bg-zinc-800 select-none";
 
   if (variant === "sidebar") {
     return (
@@ -270,8 +280,8 @@ function DraggableCard({
         {...listeners}
         {...attributes}
         style={{ transform: CSS.Translate.toString(transform), touchAction: "none" }}
-        className={`${baseClasses} cursor-grab border-zinc-200 dark:border-zinc-700 ${
-          isDragging ? "opacity-60" : ""
+        className={`${baseClasses} cursor-grab border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:border-zinc-600 dark:hover:bg-zinc-700/60 ${
+          isDragging ? "opacity-50 ring-2 ring-zinc-300" : ""
         }`}
       >
         <CardInner student={student} />
@@ -295,8 +305,8 @@ function DraggableCard({
         top: `${pos.y}%`,
         touchAction: "none",
       }}
-      className={`${baseClasses} absolute cursor-grab border-zinc-300 ring-1 ring-black/5 dark:border-zinc-600 ${
-        isDragging ? "opacity-80 z-10" : ""
+      className={`${baseClasses} absolute cursor-grab border-zinc-300 ring-2 ring-white/70 dark:border-zinc-600 dark:ring-zinc-950/60 ${
+        isDragging ? "opacity-80 z-10 shadow-lg" : "hover:shadow-md"
       }`}
     >
       <CardInner student={student} />
@@ -313,18 +323,18 @@ function CardInner({ student }: { student: Student }) {
         <img
           src={student.photoSrc}
           alt={`Photo of ${name}`}
-          className="h-8 w-8 flex-shrink-0 rounded-full object-cover"
+          className="h-10 w-10 flex-shrink-0 rounded-full object-cover ring-1 ring-zinc-200 dark:ring-zinc-700"
           draggable={false}
         />
       ) : (
         <span
           aria-hidden
-          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-zinc-200 text-[10px] text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300"
+          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-zinc-200 text-sm font-semibold text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300"
         >
           {name.slice(0, 1).toUpperCase()}
         </span>
       )}
-      <span className="font-medium text-zinc-900 dark:text-zinc-100">{name}</span>
+      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{name}</span>
     </>
   );
 }
@@ -340,70 +350,71 @@ function DetailPopover({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/50 p-4 backdrop-blur-sm"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
     >
       <div
-        className="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl dark:bg-zinc-900"
+        className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-4">
           {student.photoSrc ? (
             // eslint-disable-next-line @next/next/no-img-element -- authenticated API route
             <img
               src={student.photoSrc}
               alt={`Photo of ${displayName(student)}`}
-              className="h-16 w-16 flex-shrink-0 rounded-full object-cover"
+              className="h-20 w-20 flex-shrink-0 rounded-2xl object-cover ring-1 ring-zinc-200 dark:ring-zinc-700"
             />
-          ) : null}
+          ) : (
+            <span
+              aria-hidden
+              className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-2xl bg-zinc-200 text-2xl font-semibold text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300"
+            >
+              {displayName(student).slice(0, 1).toUpperCase()}
+            </span>
+          )}
           <div className="min-w-0">
-            <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+            <p className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
               {displayName(student)}
             </p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
               Legal: {student.legalName}
             </p>
           </div>
         </div>
 
-        <dl className="mt-4 grid grid-cols-1 gap-3 text-sm">
+        <dl className="mt-6 space-y-4 text-sm">
           {student.phoneticSpelling ? (
-            <Field label="Phonetic">{student.phoneticSpelling}</Field>
+            <PopoverField label="Phonetic">{student.phoneticSpelling}</PopoverField>
           ) : null}
-          {student.pronouns ? <Field label="Pronouns">{student.pronouns}</Field> : null}
-          {student.funFact ? <Field label="Fun fact">{student.funFact}</Field> : null}
+          {student.pronouns ? <PopoverField label="Pronouns">{student.pronouns}</PopoverField> : null}
+          {student.funFact ? <PopoverField label="Fun fact">{student.funFact}</PopoverField> : null}
         </dl>
 
-        <div className="mt-6 flex flex-wrap items-center justify-end gap-3 text-sm">
+        <div className="mt-8 flex flex-wrap items-center justify-end gap-3">
           <button
             type="button"
             onClick={onRemove}
-            className="font-medium text-red-700 underline dark:text-red-400"
+            className="text-sm font-medium text-red-700 hover:underline dark:text-red-400"
           >
             Remove from chart
           </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md bg-zinc-900 px-3 py-1.5 font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
-          >
-            Close
-          </button>
+          <Button onClick={onClose}>Close</Button>
         </div>
       </div>
     </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function PopoverField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <dt className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+      <dt className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
         {label}
       </dt>
-      <dd className="mt-0.5 text-zinc-900 dark:text-zinc-100">{children}</dd>
+      <dd className="mt-1 text-base text-zinc-900 dark:text-zinc-100">{children}</dd>
     </div>
   );
 }

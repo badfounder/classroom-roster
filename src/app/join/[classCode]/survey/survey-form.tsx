@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { submitSurvey, type SurveyFormState } from "./actions";
+import { Alert, Button, Card, Field, Input, Textarea } from "@/components/ui";
 
 export function SurveyForm({ classCode }: { classCode: string }) {
   const bound = submitSurvey.bind(null, classCode);
@@ -17,144 +18,109 @@ export function SurveyForm({ classCode }: { classCode: string }) {
         ? `${window.location.origin}${state.editPath}`
         : state.editPath;
     return (
-      <div className="mx-auto max-w-md px-6 py-16">
-        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-          Submission received
-        </h1>
-        <p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-          Bookmark your personal edit link — it is the only way to view or change your entry:
-        </p>
-        <p className="mt-4 break-all rounded-md bg-zinc-100 px-3 py-2 font-mono text-xs dark:bg-zinc-900">
-          {abs}
-        </p>
-        <p className="mt-6 text-sm text-zinc-600 dark:text-zinc-400">
-          <Link href={state.editPath} className="font-medium text-zinc-900 underline dark:text-zinc-100">
-            Open your profile
-          </Link>{" "}
-          ·{" "}
-          <Link href="/join" className="font-medium text-zinc-900 underline dark:text-zinc-100">
-            Join another class
-          </Link>
-        </p>
+      <div className="mx-auto w-full max-w-xl px-6 py-16">
+        <Card>
+          <p className="text-sm font-medium uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+            Submission received
+          </p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+            You&rsquo;re all set
+          </h1>
+          <p className="mt-4 text-base leading-relaxed text-zinc-600 dark:text-zinc-400">
+            <strong>Bookmark this link</strong> — it&rsquo;s the only way to view or change your
+            entry later. Your teacher cannot see it.
+          </p>
+          <p className="mt-4 break-all rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 font-mono text-sm dark:border-zinc-800 dark:bg-zinc-950">
+            {abs}
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link href={state.editPath}>
+              <Button>Open my profile</Button>
+            </Link>
+            <Link href="/join">
+              <Button variant="secondary">Join another class</Button>
+            </Link>
+          </div>
+        </Card>
       </div>
     );
   }
 
   return (
-    <form action={formAction} encType="multipart/form-data" className="mx-auto max-w-md px-6 py-16">
-      <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-        Student profile
-      </h1>
-      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-        Your teacher uses this to learn names and faces. Photos stay on your school&apos;s server.
-      </p>
-
-      {state && "error" in state ? (
-        <p
-          className="mt-6 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-200"
-          role="alert"
-        >
-          {state.error}
+    <div className="mx-auto w-full max-w-xl px-6 py-16">
+      <Card>
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+          Your student profile
+        </h1>
+        <p className="mt-2 text-base text-zinc-600 dark:text-zinc-400">
+          Your teacher uses this to learn names and faces. Photos stay on your school&rsquo;s
+          server.
         </p>
-      ) : null}
 
-      <div className="mt-8 flex flex-col gap-4">
-        <label className="flex cursor-pointer gap-3 rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
-          <input type="checkbox" name="consent" required className="mt-1" />
-          <span className="text-sm text-zinc-800 dark:text-zinc-200">
-            My parent/guardian has approved sharing this information with my teacher.
-          </span>
-        </label>
+        <form action={formAction} encType="multipart/form-data" className="mt-6 flex flex-col gap-5">
+          {state && "error" in state ? <Alert variant="error">{state.error}</Alert> : null}
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="photo" className="text-sm font-medium">
-            Photo <span className="text-red-600">*</span>
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
+            <input type="checkbox" name="consent" required className="mt-1 h-4 w-4" />
+            <span className="text-sm text-zinc-800 dark:text-zinc-200">
+              My parent or guardian has approved sharing this information with my teacher.
+            </span>
           </label>
-          <input
-            id="photo"
-            name="photo"
-            type="file"
-            accept="image/jpeg,image/png,image/heic,.heic"
+
+          <Field
+            label="Photo"
+            htmlFor="photo"
             required
-            className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-zinc-200 file:px-3 file:py-1.5 dark:file:bg-zinc-700"
-          />
-          <span className="text-xs text-zinc-500">JPEG, PNG, or HEIC — max 5 MB before upload.</span>
-        </div>
+            hint="JPEG, PNG, or HEIC — max 5 MB. EXIF metadata is stripped before storage."
+          >
+            <Input
+              id="photo"
+              name="photo"
+              type="file"
+              accept="image/jpeg,image/png,image/heic,.heic"
+              required
+            />
+          </Field>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="legal_name" className="text-sm font-medium">
-            Legal name <span className="text-red-600">*</span>
-          </label>
-          <input
-            id="legal_name"
-            name="legal_name"
-            type="text"
+          <Field label="Legal name" htmlFor="legal_name" required>
+            <Input id="legal_name" name="legal_name" required autoComplete="name" />
+          </Field>
+
+          <Field
+            label="Preferred name"
+            htmlFor="preferred_name"
             required
-            autoComplete="name"
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-900"
-          />
-        </div>
+            hint="What your teacher should call you in class."
+          >
+            <Input id="preferred_name" name="preferred_name" required />
+          </Field>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="preferred_name" className="text-sm font-medium">
-            Preferred name <span className="text-red-600">*</span>
-          </label>
-          <input
-            id="preferred_name"
-            name="preferred_name"
-            type="text"
+          <Field
+            label="Phonetic spelling"
+            htmlFor="phonetic_spelling"
+            hint="Optional — how to pronounce your name (e.g. KAY-tee for Katie)."
+          >
+            <Input id="phonetic_spelling" name="phonetic_spelling" placeholder="Optional" />
+          </Field>
+
+          <Field label="Pronouns" htmlFor="pronouns" required>
+            <Input id="pronouns" name="pronouns" required />
+          </Field>
+
+          <Field
+            label="Fun fact"
+            htmlFor="fun_fact"
             required
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-900"
-          />
-        </div>
+            hint="One sentence — something that helps your teacher remember you."
+          >
+            <Textarea id="fun_fact" name="fun_fact" required rows={3} />
+          </Field>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="phonetic_spelling" className="text-sm font-medium">
-            Phonetic spelling
-          </label>
-          <input
-            id="phonetic_spelling"
-            name="phonetic_spelling"
-            type="text"
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-900"
-            placeholder="Optional"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="pronouns" className="text-sm font-medium">
-            Pronouns <span className="text-red-600">*</span>
-          </label>
-          <input
-            id="pronouns"
-            name="pronouns"
-            type="text"
-            required
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-900"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="fun_fact" className="text-sm font-medium">
-            Fun fact <span className="text-red-600">*</span>
-          </label>
-          <textarea
-            id="fun_fact"
-            name="fun_fact"
-            required
-            rows={3}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-900"
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={pending}
-          className="mt-2 rounded-md bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
-        >
-          {pending ? "Submitting…" : "Submit"}
-        </button>
-      </div>
-    </form>
+          <Button type="submit" size="lg" disabled={pending} className="mt-2 w-full">
+            {pending ? "Submitting…" : "Submit profile"}
+          </Button>
+        </form>
+      </Card>
+    </div>
   );
 }

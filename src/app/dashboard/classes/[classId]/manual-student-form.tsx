@@ -5,6 +5,7 @@ import {
   addManualStudent,
   type RosterFormState,
 } from "./roster-actions";
+import { Alert, Button, Field, Input, Textarea } from "@/components/ui";
 
 export function ManualStudentForm({ classId }: { classId: string }) {
   const bound = addManualStudent.bind(null, classId);
@@ -14,54 +15,45 @@ export function ManualStudentForm({ classId }: { classId: string }) {
   );
 
   return (
-    <form action={formAction} encType="multipart/form-data" className="mt-4 grid gap-3 sm:grid-cols-2">
+    <form action={formAction} encType="multipart/form-data" className="grid gap-4 sm:grid-cols-2">
       {state && "error" in state ? (
-        <p className="sm:col-span-2 text-sm text-red-700 dark:text-red-300" role="alert">
-          {state.error}
-        </p>
+        <div className="sm:col-span-2">
+          <Alert variant="error">{state.error}</Alert>
+        </div>
       ) : null}
       {state && "info" in state ? (
-        <p className="sm:col-span-2 text-sm text-emerald-800 dark:text-emerald-200" role="status">
-          {state.info}
-        </p>
+        <div className="sm:col-span-2">
+          <Alert variant="success">{state.info}</Alert>
+        </div>
       ) : null}
-      <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Legal name</label>
-        <input name="legal_name" required className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-600 dark:bg-zinc-900" />
-      </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Preferred name</label>
-        <input name="preferred_name" required className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-600 dark:bg-zinc-900" />
-      </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Phonetic (optional)</label>
-        <input name="phonetic_spelling" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-600 dark:bg-zinc-900" />
-      </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Pronouns (optional)</label>
-        <input name="pronouns" className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-600 dark:bg-zinc-900" />
-      </div>
-      <div className="sm:col-span-2 flex flex-col gap-1">
-        <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Fun fact</label>
-        <textarea name="fun_fact" required rows={2} className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-600 dark:bg-zinc-900" />
-      </div>
-      <div className="sm:col-span-2 flex flex-col gap-1">
-        <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Photo (optional)</label>
-        <input
-          name="photo"
-          type="file"
-          accept="image/jpeg,image/png,image/heic,.heic"
-          className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-zinc-200 file:px-3 dark:file:bg-zinc-700"
-        />
-      </div>
+
+      <Field label="Legal name" required>
+        <Input name="legal_name" required />
+      </Field>
+      <Field label="Preferred name" required>
+        <Input name="preferred_name" required />
+      </Field>
+      <Field label="Phonetic spelling" hint="Optional — how to pronounce the name.">
+        <Input name="phonetic_spelling" />
+      </Field>
+      <Field label="Pronouns" hint="Optional.">
+        <Input name="pronouns" />
+      </Field>
+      <Field label="Fun fact" required className="sm:col-span-2">
+        <Textarea name="fun_fact" required rows={2} />
+      </Field>
+      <Field
+        label="Photo"
+        hint="Optional — JPEG, PNG, or HEIC up to 5 MB."
+        className="sm:col-span-2"
+      >
+        <Input name="photo" type="file" accept="image/jpeg,image/png,image/heic,.heic" />
+      </Field>
+
       <div className="sm:col-span-2">
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-        >
+        <Button variant="secondary" type="submit" disabled={pending}>
           {pending ? "Adding…" : "Add student manually"}
-        </button>
+        </Button>
       </div>
     </form>
   );

@@ -5,6 +5,7 @@ import { getPool } from "@/lib/db";
 import { CsvRosterUpload } from "./csv-roster-upload";
 import { DeleteStudentButton } from "./delete-student-button";
 import { ManualStudentForm } from "./manual-student-form";
+import { Badge, SectionHeader } from "@/components/ui";
 
 export async function ClassRosterPanel({ classId }: { classId: string }) {
   const session = await getServerSession(authOptions);
@@ -29,58 +30,70 @@ export async function ClassRosterPanel({ classId }: { classId: string }) {
   );
 
   const review = students.filter((s) => s.submission_review != null);
+  const submittedCount = students.filter((s) => s.survey_submitted_at != null).length;
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <section>
-        <h2 className="text-sm font-medium text-zinc-900 dark:text-zinc-50">Roster (CSV)</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Required column <code className="text-xs">legal_name</code>; optional{" "}
-          <code className="text-xs">preferred_name</code>,{" "}
-          <code className="text-xs">pronouns</code>. Max 200 rows, 1 MB.{" "}
-          <a
-            href="/roster-template.csv"
-            className="font-medium text-zinc-900 underline dark:text-zinc-100"
-            download
-          >
-            Download template
-          </a>
-          .
-        </p>
-        <div className="mt-4">
-          <CsvRosterUpload classId={classId} />
-        </div>
+        <SectionHeader
+          title="Roster upload (CSV)"
+          description={
+            <>
+              Required column <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-800">legal_name</code>;
+              optional <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-800">preferred_name</code>,{" "}
+              <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-800">pronouns</code>. Max 200 rows, 1 MB.{" "}
+              <a
+                href="/roster-template.csv"
+                className="font-medium text-zinc-900 underline dark:text-zinc-100"
+                download
+              >
+                Download template
+              </a>
+              .
+            </>
+          }
+        />
+        <CsvRosterUpload classId={classId} />
       </section>
 
-      <section>
-        <h2 className="text-sm font-medium text-zinc-900 dark:text-zinc-50">Add student manually</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Bypass the survey when you already know the details. An edit link is shown after you save.
-        </p>
+      <section className="border-t border-zinc-200 pt-6 dark:border-zinc-800">
+        <SectionHeader
+          title="Add student manually"
+          description="Bypass the survey when you already know the details. An edit link is shown after you save."
+        />
         <ManualStudentForm classId={classId} />
       </section>
 
       {review.length > 0 ? (
-        <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
-          <h2 className="text-sm font-medium text-amber-950 dark:text-amber-100">Review queue</h2>
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-950/30">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-base font-semibold text-amber-950 dark:text-amber-100">
+              Review queue ({review.length})
+            </h2>
+          </div>
           <p className="mt-1 text-sm text-amber-900/90 dark:text-amber-200/90">
             These survey submissions did not match your roster cleanly. Resolve duplicates or remove
-            incorrect rows below.
+            incorrect rows.
           </p>
-          <ul className="mt-3 space-y-2 text-sm">
+          <ul className="mt-4 space-y-2">
             {review.map((s) => (
-              <li key={s.id} className="flex flex-wrap items-center justify-between gap-2">
-                <span>
-                  <span className="font-medium">{s.legal_name}</span>
+              <li
+                key={s.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200/60 bg-white/60 px-3 py-2 dark:border-amber-900/40 dark:bg-amber-950/40"
+              >
+                <div>
+                  <span className="font-medium text-zinc-900 dark:text-zinc-50">{s.legal_name}</span>
                   {s.preferred_name ? (
                     <span className="text-zinc-600 dark:text-zinc-400"> — {s.preferred_name}</span>
                   ) : null}
-                  <span className="ml-2 rounded bg-amber-200/80 px-1.5 py-0.5 text-xs text-amber-950 dark:bg-amber-900 dark:text-amber-100">
-                    {s.submission_review === "ambiguous_roster_match"
-                      ? "Ambiguous roster match"
-                      : "No roster match"}
+                  <span className="ml-2">
+                    <Badge variant="warning">
+                      {s.submission_review === "ambiguous_roster_match"
+                        ? "Ambiguous match"
+                        : "No roster match"}
+                    </Badge>
                   </span>
-                </span>
+                </div>
                 <span className="flex items-center gap-3">
                   <Link
                     href={`/dashboard/classes/${classId}/students/${s.id}`}
@@ -88,11 +101,7 @@ export async function ClassRosterPanel({ classId }: { classId: string }) {
                   >
                     Edit
                   </Link>
-                  <DeleteStudentButton
-                    classId={classId}
-                    studentId={s.id}
-                    label={s.legal_name}
-                  />
+                  <DeleteStudentButton classId={classId} studentId={s.id} label={s.legal_name} />
                 </span>
               </li>
             ))}
@@ -100,42 +109,52 @@ export async function ClassRosterPanel({ classId }: { classId: string }) {
         </section>
       ) : null}
 
-      <section>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-medium text-zinc-900 dark:text-zinc-50">Students</h2>
-          <Link
-            href={`/api/classes/${classId}/export`}
-            className="text-sm font-medium text-zinc-900 underline dark:text-zinc-100"
-          >
-            Export JSON
-          </Link>
-        </div>
+      <section className="border-t border-zinc-200 pt-6 dark:border-zinc-800">
+        <SectionHeader
+          title={`Students (${students.length})`}
+          description={
+            students.length > 0
+              ? `${submittedCount} of ${students.length} have submitted their profile.`
+              : undefined
+          }
+          actions={
+            students.length > 0 ? (
+              <Link
+                href={`/api/classes/${classId}/export`}
+                className="text-sm font-medium text-zinc-900 underline dark:text-zinc-100"
+              >
+                Export JSON
+              </Link>
+            ) : null
+          }
+        />
+
         {students.length === 0 ? (
-          <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
-            No students yet. Upload a CSV or add manually.
+          <p className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-5 py-10 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/40">
+            No students yet. Upload a CSV or add one manually above.
           </p>
         ) : (
-          <ul className="mt-4 divide-y divide-zinc-200 rounded-lg border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+          <ul className="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
             {students.map((s) => (
               <li
                 key={s.id}
-                className="flex flex-wrap items-center justify-between gap-3 px-3 py-3 text-sm"
+                className="flex flex-wrap items-center justify-between gap-3 bg-white px-4 py-3 dark:bg-zinc-900"
               >
-                <div>
-                  <span className="font-medium text-zinc-900 dark:text-zinc-50">{s.legal_name}</span>
-                  {s.preferred_name ? (
-                    <span className="text-zinc-600 dark:text-zinc-400"> — {s.preferred_name}</span>
-                  ) : null}
-                  <div className="mt-1 flex flex-wrap gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                    <span>Source: {s.source}</span>
-                    {s.survey_submitted_at ? (
-                      <span>Submitted</span>
-                    ) : (
-                      <span className="text-amber-800 dark:text-amber-200">Awaiting survey</span>
-                    )}
-                    {s.submission_review ? (
-                      <span className="text-amber-800 dark:text-amber-200">Needs review</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                    {s.legal_name}
+                    {s.preferred_name ? (
+                      <span className="font-normal text-zinc-500 dark:text-zinc-400"> &middot; {s.preferred_name}</span>
                     ) : null}
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <Badge variant="muted">Source: {s.source}</Badge>
+                    {s.survey_submitted_at ? (
+                      <Badge variant="success">Submitted</Badge>
+                    ) : (
+                      <Badge variant="warning">Awaiting survey</Badge>
+                    )}
+                    {s.submission_review ? <Badge variant="warning">Needs review</Badge> : null}
                   </div>
                 </div>
                 <span className="flex items-center gap-3">
