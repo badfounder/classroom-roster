@@ -22,7 +22,13 @@ type Student = {
   phoneticSpelling: string | null;
   pronouns: string | null;
   funFact: string | null;
+  hometown: string | null;
+  major: string | null;
+  favoriteFood: string | null;
+  weekendActivity: string | null;
+  superpower: string | null;
   photoSrc: string | null;
+  audioSrc: string | null;
 };
 
 type Position = { x: number; y: number };
@@ -385,12 +391,38 @@ function DetailPopover({
           </div>
         </div>
 
-        <dl className="mt-6 space-y-4 text-sm">
+        {student.audioSrc ? (
+          <div className="mt-5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              Pronunciation
+            </p>
+            <audio controls src={student.audioSrc} className="mt-1 h-9 w-full" />
+          </div>
+        ) : null}
+
+        <dl className="mt-6 grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
           {student.phoneticSpelling ? (
             <PopoverField label="Phonetic">{student.phoneticSpelling}</PopoverField>
           ) : null}
           {student.pronouns ? <PopoverField label="Pronouns">{student.pronouns}</PopoverField> : null}
-          {student.funFact ? <PopoverField label="Fun fact">{student.funFact}</PopoverField> : null}
+          {student.hometown ? <PopoverField label="From">{student.hometown}</PopoverField> : null}
+          {student.major ? <PopoverField label="Major">{student.major}</PopoverField> : null}
+          {student.favoriteFood ? (
+            <PopoverField label="Favorite food">{student.favoriteFood}</PopoverField>
+          ) : null}
+          {student.weekendActivity ? (
+            <PopoverField label="Weekend mode">{student.weekendActivity}</PopoverField>
+          ) : null}
+          {student.superpower ? (
+            <PopoverField label="Superpower" wide>
+              {student.superpower}
+            </PopoverField>
+          ) : null}
+          {student.funFact ? (
+            <PopoverField label="Anything else" wide>
+              {student.funFact}
+            </PopoverField>
+          ) : null}
         </dl>
 
         <div className="mt-8 flex flex-wrap items-center justify-end gap-3">
@@ -408,13 +440,21 @@ function DetailPopover({
   );
 }
 
-function PopoverField({ label, children }: { label: string; children: React.ReactNode }) {
+function PopoverField({
+  label,
+  children,
+  wide,
+}: {
+  label: string;
+  children: React.ReactNode;
+  wide?: boolean;
+}) {
   return (
-    <div>
+    <div className={wide ? "col-span-2" : undefined}>
       <dt className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
         {label}
       </dt>
-      <dd className="mt-1 text-base text-zinc-900 dark:text-zinc-100">{children}</dd>
+      <dd className="mt-1 text-sm text-zinc-900 dark:text-zinc-100">{children}</dd>
     </div>
   );
 }

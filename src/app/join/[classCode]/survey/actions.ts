@@ -8,6 +8,7 @@ import { generateEditToken, hashEditToken } from "@/lib/edit-token";
 import { getPool } from "@/lib/db";
 import { normalizeClassCode } from "@/lib/class-code";
 import { studentPhotoToJpegBuffer } from "@/lib/process-student-photo";
+import { assertNameAudio, audioExtensionFor } from "@/lib/process-name-audio";
 import { allowSurveySubmit } from "@/lib/survey-rate-limit";
 import {
   absoluteUploadPath,
@@ -25,6 +26,11 @@ async function getClientIp(): Promise<string> {
   const fwd = h.get("x-forwarded-for");
   const fromFwd = fwd?.split(",")[0]?.trim();
   return fromFwd || h.get("x-real-ip") || "unknown";
+}
+
+function takeString(formData: FormData, key: string): string | null {
+  const raw = String(formData.get(key) ?? "").trim();
+  return raw.length > 0 ? raw : null;
 }
 
 export async function submitSurvey(
@@ -46,28 +52,29 @@ export async function submitSurvey(
   const consent = formData.get("consent");
   if (consent !== "on" && consent !== "true") {
     return {
-      error: "You must confirm that a parent/guardian approved sharing this information.",
+      error: "Please confirm you're okay sharing this information with your professor.",
     };
   }
 
-  const legalName = String(formData.get("legal_name") ?? "").trim();
-  const preferredName = String(formData.get("preferred_name") ?? "").trim();
-  const phonetic = String(formData.get("phonetic_spelling") ?? "").trim();
-  const pronouns = String(formData.get("pronouns") ?? "").trim();
-  const funFact = String(formData.get("fun_fact") ?? "").trim();
-  const rawPhoto = formData.get("photo");
+  const legalName = takeString(formData, "legal_name");
+  const preferredName = takeString(formData, "preferred_name");
+  const phonetic = takeString(formData, "phonetic_spelling");
+  const pronouns = takeString(formData, "pronouns");
+  const funFact = takeString(formData, "fun_fact");
+  const hometown = takeString(formData, "hometown");
+  const major = takeString(formData, "major");
+  const favoriteFood = takeString(formData, "favorite_food");
+  const weekendActivity = takeString(formData, "weekend_activity");
+  const superpower = takeString(formData, "superpower");
 
-  if (
-    !legalName ||
-    !preferredName ||
-    !pronouns ||
-    !funFact ||
-    !(rawPhoto instanceof File) ||
-    rawPhoto.size === 0
-  ) {
-    return {
-      error: "Fill every field and upload a photo.",
-    };
+  const rawPhoto = formData.get("photo");
+  const rawAudio = formData.get("name_audio");
+
+  if (!legalName) {
+    return { error: "Your legal name is required." };
+  }
+  if (!(rawPhoto instanceof File) || rawPhoto.size === 0) {
+    return { error: "Please add a photo of yourself." };
   }
 
   const pool = getPool();
@@ -79,15 +86,29 @@ export async function submitSurvey(
   if (!cls) {
     return { error: "This class code is no longer valid." };
   }
-
   const classId = cls.id;
 
+  // Process photo (and audio if provided) before any DB writes so a bad upload
+  // never produces a half-saved student row.
   let photoBuffer: Buffer;
   try {
     photoBuffer = await studentPhotoToJpegBuffer(rawPhoto);
   } catch (e) {
     if (e instanceof Error) return { error: e.message };
     throw e;
+  }
+
+  let audioBuffer: Buffer | null = null;
+  let audioExt: string | null = null;
+  if (rawAudio instanceof File && rawAudio.size > 0) {
+    try {
+      assertNameAudio(rawAudio);
+      audioBuffer = Buffer.from(await rawAudio.arrayBuffer());
+      audioExt = audioExtensionFor(rawAudio);
+    } catch (e) {
+      if (e instanceof Error) return { error: e.message };
+      throw e;
+    }
   }
 
   const editToken = generateEditToken();
@@ -102,101 +123,105 @@ export async function submitSurvey(
        AND lower(trim(legal_name)) = lower(trim($2::text))`,
     [classId, legalName]
   );
-
   const matches = matchRows.rows;
 
+  // Resolve to a single student id (match or fresh insert), then write files.
   const client = await pool.connect();
+  let resolvedStudentId: string | null = null;
+  let prevPhotoPath: string | null = null;
+  let prevAudioPath: string | null = null;
 
   try {
     await client.query("BEGIN");
 
     if (matches.length === 1) {
-      const studentId = matches[0]!.id;
-      const { rows: prevRows } = await client.query<{ photo_path: string | null }>(
-        `SELECT photo_path FROM students WHERE id = $1 FOR UPDATE`,
-        [studentId]
+      resolvedStudentId = matches[0]!.id;
+      const { rows: prev } = await client.query<{
+        photo_path: string | null;
+        name_audio_path: string | null;
+      }>(
+        `SELECT photo_path, name_audio_path FROM students WHERE id = $1 FOR UPDATE`,
+        [resolvedStudentId]
       );
-      const oldPath = prevRows[0]?.photo_path ?? null;
-
-      const fileName = `photo-${randomUUID()}.jpg`;
-      const relative = `students/${studentId}/${fileName}`;
-      await ensureDir(absoluteUploadPath(`students/${studentId}`));
-      await fs.writeFile(absoluteUploadPath(relative), photoBuffer);
-
-      await client.query(
-        `UPDATE students SET
-          preferred_name = $2,
-          phonetic_spelling = $3,
-          pronouns = $4,
-          fun_fact = $5,
-          photo_path = $6,
-          consent_confirmed_at = $7,
-          survey_submitted_at = $8,
-          edit_token_hash = $9,
-          submission_review = NULL
-        WHERE id = $1`,
-        [
-          studentId,
-          preferredName,
-          phonetic.length > 0 ? phonetic : null,
-          pronouns,
-          funFact,
-          relative,
-          nowSql,
-          nowSql,
-          tokenHash,
-        ]
-      );
-
-      await client.query("COMMIT");
-
-      if (oldPath && oldPath !== relative) {
-        await unlinkQuiet(absoluteUploadPath(oldPath));
-      }
-
-      revalidatePath(`/dashboard/classes/${classId}`);
-      return { success: true, editPath: `/student/${editToken}` };
-    }
-
-    let submissionReview: "no_roster_match" | "ambiguous_roster_match";
-    if (matches.length === 0) {
-      submissionReview = "no_roster_match";
+      prevPhotoPath = prev[0]?.photo_path ?? null;
+      prevAudioPath = prev[0]?.name_audio_path ?? null;
     } else {
-      submissionReview = "ambiguous_roster_match";
+      const submissionReview =
+        matches.length === 0 ? "no_roster_match" : "ambiguous_roster_match";
+
+      const { rows: ins } = await client.query<{ id: string }>(
+        `INSERT INTO students (
+           class_id, legal_name, source, consent_confirmed_at,
+           survey_submitted_at, edit_token_hash, submission_review
+         )
+         VALUES ($1, $2, 'survey', $3, $4, $5, $6)
+         RETURNING id`,
+        [classId, legalName, nowSql, nowSql, tokenHash, submissionReview]
+      );
+      resolvedStudentId = ins[0]!.id;
     }
 
-    const { rows: ins } = await client.query<{ id: string }>(
-      `INSERT INTO students (
-        class_id, legal_name, preferred_name, phonetic_spelling, pronouns, fun_fact,
-        source, consent_confirmed_at, survey_submitted_at, edit_token_hash, submission_review
-      ) VALUES ($1, $2, $3, $4, $5, $6, 'survey', $7, $8, $9, $10)
-      RETURNING id`,
+    const studentDir = `students/${resolvedStudentId}`;
+    await ensureDir(absoluteUploadPath(studentDir));
+
+    const photoRelative = `${studentDir}/photo-${randomUUID()}.jpg`;
+    await fs.writeFile(absoluteUploadPath(photoRelative), photoBuffer);
+
+    let audioRelative: string | null = null;
+    if (audioBuffer && audioExt) {
+      audioRelative = `${studentDir}/name-${randomUUID()}.${audioExt}`;
+      await fs.writeFile(absoluteUploadPath(audioRelative), audioBuffer);
+    }
+
+    await client.query(
+      `UPDATE students SET
+         preferred_name = $2,
+         phonetic_spelling = $3,
+         pronouns = $4,
+         fun_fact = $5,
+         hometown = $6,
+         major = $7,
+         favorite_food = $8,
+         weekend_activity = $9,
+         superpower = $10,
+         photo_path = $11,
+         name_audio_path = COALESCE($12, name_audio_path),
+         consent_confirmed_at = $13,
+         survey_submitted_at = $14,
+         edit_token_hash = $15,
+         submission_review = CASE WHEN submission_review IS NOT NULL
+                                  THEN submission_review
+                                  ELSE NULL END
+       WHERE id = $1`,
       [
-        classId,
-        legalName,
+        resolvedStudentId,
         preferredName,
-        phonetic.length > 0 ? phonetic : null,
+        phonetic,
         pronouns,
         funFact,
+        hometown,
+        major,
+        favoriteFood,
+        weekendActivity,
+        superpower,
+        photoRelative,
+        audioRelative,
         nowSql,
         nowSql,
         tokenHash,
-        submissionReview,
       ]
     );
-    const studentId = ins[0]!.id;
-
-    const fileName = `photo-${randomUUID()}.jpg`;
-    const relative = `students/${studentId}/${fileName}`;
-    await ensureDir(absoluteUploadPath(`students/${studentId}`));
-    await fs.writeFile(absoluteUploadPath(relative), photoBuffer);
-
-    await client.query(`UPDATE students SET photo_path = $1 WHERE id = $2`, [
-      relative,
-      studentId,
-    ]);
 
     await client.query("COMMIT");
+
+    // After commit, clean up any photo/audio the old row pointed at.
+    if (prevPhotoPath && prevPhotoPath !== photoRelative) {
+      await unlinkQuiet(absoluteUploadPath(prevPhotoPath));
+    }
+    if (audioRelative && prevAudioPath && prevAudioPath !== audioRelative) {
+      await unlinkQuiet(absoluteUploadPath(prevAudioPath));
+    }
+
     revalidatePath(`/dashboard/classes/${classId}`);
     return { success: true, editPath: `/student/${editToken}` };
   } catch (e) {

@@ -39,9 +39,17 @@ export default async function SeatingChartPage({
     phonetic_spelling: string | null;
     pronouns: string | null;
     fun_fact: string | null;
+    hometown: string | null;
+    major: string | null;
+    favorite_food: string | null;
+    weekend_activity: string | null;
+    superpower: string | null;
     photo_path: string | null;
+    name_audio_path: string | null;
   }>(
-    `SELECT id, legal_name, preferred_name, phonetic_spelling, pronouns, fun_fact, photo_path
+    `SELECT id, legal_name, preferred_name, phonetic_spelling, pronouns, fun_fact,
+            hometown, major, favorite_food, weekend_activity, superpower,
+            photo_path, name_audio_path
      FROM students WHERE class_id = $1
      ORDER BY legal_name ASC`,
     [classId]
@@ -69,7 +77,13 @@ export default async function SeatingChartPage({
     phoneticSpelling: r.phonetic_spelling,
     pronouns: r.pronouns,
     funFact: r.fun_fact,
+    hometown: r.hometown,
+    major: r.major,
+    favoriteFood: r.favorite_food,
+    weekendActivity: r.weekend_activity,
+    superpower: r.superpower,
     photoSrc: r.photo_path ? `/api/uploads/${encodeURI(r.photo_path)}` : null,
+    audioSrc: r.name_audio_path ? `/api/uploads/${encodeURI(r.name_audio_path)}` : null,
   }));
 
   const classroomPhotoSrc = cls.classroom_photo_path

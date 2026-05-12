@@ -25,13 +25,20 @@ export default async function EditStudentPage({
     phonetic_spelling: string | null;
     pronouns: string | null;
     fun_fact: string | null;
+    hometown: string | null;
+    major: string | null;
+    favorite_food: string | null;
+    weekend_activity: string | null;
+    superpower: string | null;
     photo_path: string | null;
+    name_audio_path: string | null;
     submission_review: string | null;
     class_name: string;
   }>(
     `SELECT s.id, s.legal_name, s.preferred_name, s.phonetic_spelling,
-            s.pronouns, s.fun_fact, s.photo_path, s.submission_review,
-            c.name AS class_name
+            s.pronouns, s.fun_fact, s.hometown, s.major, s.favorite_food,
+            s.weekend_activity, s.superpower, s.photo_path, s.name_audio_path,
+            s.submission_review, c.name AS class_name
      FROM students s
      JOIN classes c ON c.id = s.class_id
      WHERE s.id = $1 AND s.class_id = $2 AND c.teacher_id = $3`,
@@ -44,6 +51,9 @@ export default async function EditStudentPage({
 
   const photoSrc = student.photo_path
     ? `/api/uploads/${encodeURI(student.photo_path)}`
+    : null;
+  const audioSrc = student.name_audio_path
+    ? `/api/uploads/${encodeURI(student.name_audio_path)}`
     : null;
 
   return (
@@ -73,7 +83,15 @@ export default async function EditStudentPage({
               No photo on file
             </div>
           )}
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 space-y-4">
+            {audioSrc ? (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                  Student saying their name
+                </p>
+                <audio controls src={audioSrc} className="mt-2 h-9 w-full" />
+              </div>
+            ) : null}
             <EditStudentForm
               classId={classId}
               studentId={student.id}
@@ -82,6 +100,11 @@ export default async function EditStudentPage({
               phonetic={student.phonetic_spelling ?? ""}
               pronouns={student.pronouns ?? ""}
               funFact={student.fun_fact ?? ""}
+              hometown={student.hometown ?? ""}
+              major={student.major ?? ""}
+              favoriteFood={student.favorite_food ?? ""}
+              weekendActivity={student.weekend_activity ?? ""}
+              superpower={student.superpower ?? ""}
               hasReviewFlag={student.submission_review != null}
             />
           </div>

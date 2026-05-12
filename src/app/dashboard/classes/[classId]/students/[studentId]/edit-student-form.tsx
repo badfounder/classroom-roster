@@ -15,6 +15,11 @@ type Props = {
   phonetic: string;
   pronouns: string;
   funFact: string;
+  hometown: string;
+  major: string;
+  favoriteFood: string;
+  weekendActivity: string;
+  superpower: string;
   hasReviewFlag: boolean;
 };
 
@@ -26,6 +31,11 @@ export function EditStudentForm({
   phonetic,
   pronouns,
   funFact,
+  hometown,
+  major,
+  favoriteFood,
+  weekendActivity,
+  superpower,
   hasReviewFlag,
 }: Props) {
   const bound = updateStudentByTeacher.bind(null, classId, studentId);
@@ -60,7 +70,23 @@ export function EditStudentForm({
         <Input id="pronouns" name="pronouns" defaultValue={pronouns} />
       </Field>
 
-      <Field label="Fun fact" htmlFor="fun_fact" className="sm:col-span-2">
+      <Field label="Hometown" htmlFor="hometown">
+        <Input id="hometown" name="hometown" defaultValue={hometown} />
+      </Field>
+      <Field label="Major / program" htmlFor="major">
+        <Input id="major" name="major" defaultValue={major} />
+      </Field>
+      <Field label="Favorite food" htmlFor="favorite_food">
+        <Input id="favorite_food" name="favorite_food" defaultValue={favoriteFood} />
+      </Field>
+      <Field label="Weekend mode" htmlFor="weekend_activity">
+        <Input id="weekend_activity" name="weekend_activity" defaultValue={weekendActivity} />
+      </Field>
+      <Field label="Superpower" htmlFor="superpower" className="sm:col-span-2">
+        <Input id="superpower" name="superpower" defaultValue={superpower} />
+      </Field>
+
+      <Field label="Anything else" htmlFor="fun_fact" className="sm:col-span-2">
         <Textarea id="fun_fact" name="fun_fact" rows={3} defaultValue={funFact} />
       </Field>
 

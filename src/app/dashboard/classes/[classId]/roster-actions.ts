@@ -85,6 +85,11 @@ export async function uploadRosterCsv(
   return { info: `Added ${inserted} roster row(s).` };
 }
 
+function takeString(formData: FormData, key: string): string | null {
+  const raw = String(formData.get(key) ?? "").trim();
+  return raw.length > 0 ? raw : null;
+}
+
 export async function updateStudentByTeacher(
   classId: string,
   studentId: string,
@@ -100,11 +105,16 @@ export async function updateStudentByTeacher(
     return { error: "Class not found." };
   }
 
-  const legalName = String(formData.get("legal_name") ?? "").trim();
-  const preferredName = String(formData.get("preferred_name") ?? "").trim();
-  const phonetic = String(formData.get("phonetic_spelling") ?? "").trim();
-  const pronouns = String(formData.get("pronouns") ?? "").trim();
-  const funFact = String(formData.get("fun_fact") ?? "").trim();
+  const legalName = takeString(formData, "legal_name");
+  const preferredName = takeString(formData, "preferred_name");
+  const phonetic = takeString(formData, "phonetic_spelling");
+  const pronouns = takeString(formData, "pronouns");
+  const funFact = takeString(formData, "fun_fact");
+  const hometown = takeString(formData, "hometown");
+  const major = takeString(formData, "major");
+  const favoriteFood = takeString(formData, "favorite_food");
+  const weekendActivity = takeString(formData, "weekend_activity");
+  const superpower = takeString(formData, "superpower");
   const clearReview = formData.get("clear_review") === "on";
   const rawPhoto = formData.get("photo");
   const photo =
@@ -140,14 +150,24 @@ export async function updateStudentByTeacher(
            phonetic_spelling = $3,
            pronouns = $4,
            fun_fact = $5,
-           submission_review = CASE WHEN $6::boolean THEN NULL ELSE submission_review END
-       WHERE id = $7`,
+           hometown = $6,
+           major = $7,
+           favorite_food = $8,
+           weekend_activity = $9,
+           superpower = $10,
+           submission_review = CASE WHEN $11::boolean THEN NULL ELSE submission_review END
+       WHERE id = $12`,
       [
         legalName,
-        preferredName.length > 0 ? preferredName : null,
-        phonetic.length > 0 ? phonetic : null,
-        pronouns.length > 0 ? pronouns : null,
-        funFact.length > 0 ? funFact : null,
+        preferredName,
+        phonetic,
+        pronouns,
+        funFact,
+        hometown,
+        major,
+        favoriteFood,
+        weekendActivity,
+        superpower,
         clearReview,
         studentId,
       ]
@@ -195,8 +215,11 @@ export async function deleteStudentAction(classId: string, studentId: string): P
   if (!teacherId) return;
 
   const pool = getPool();
-  const { rows } = await pool.query<{ photo_path: string | null }>(
-    `SELECT s.photo_path
+  const { rows } = await pool.query<{
+    photo_path: string | null;
+    name_audio_path: string | null;
+  }>(
+    `SELECT s.photo_path, s.name_audio_path
      FROM students s
      JOIN classes c ON c.id = s.class_id
      WHERE s.id = $1 AND s.class_id = $2 AND c.teacher_id = $3`,
@@ -209,6 +232,9 @@ export async function deleteStudentAction(classId: string, studentId: string): P
 
   if (row.photo_path) {
     await unlinkQuiet(absoluteUploadPath(row.photo_path));
+  }
+  if (row.name_audio_path) {
+    await unlinkQuiet(absoluteUploadPath(row.name_audio_path));
   }
   await rmDirQuiet(path.join(getUploadRoot(), "students", studentId));
   revalidatePath(`/dashboard/classes/${classId}`);
@@ -228,19 +254,17 @@ export async function addManualStudent(
     return { error: "Class not found." };
   }
 
-  const legalName = String(formData.get("legal_name") ?? "").trim();
-  const preferredName = String(formData.get("preferred_name") ?? "").trim();
-  const phonetic = String(formData.get("phonetic_spelling") ?? "").trim();
-  const pronouns = String(formData.get("pronouns") ?? "").trim();
-  const funFact = String(formData.get("fun_fact") ?? "").trim();
+  const legalName = takeString(formData, "legal_name");
+  const preferredName = takeString(formData, "preferred_name");
+  const phonetic = takeString(formData, "phonetic_spelling");
+  const pronouns = takeString(formData, "pronouns");
+  const funFact = takeString(formData, "fun_fact");
   const rawPhoto = formData.get("photo");
   const photo =
     rawPhoto instanceof File && rawPhoto.size > 0 ? rawPhoto : null;
 
-  if (!legalName || !preferredName || !funFact) {
-    return {
-      error: "Legal name, preferred name, and fun fact are required for a manual entry.",
-    };
+  if (!legalName) {
+    return { error: "Legal name is required." };
   }
 
   const token = generateEditToken();
@@ -262,8 +286,8 @@ export async function addManualStudent(
         classId,
         legalName,
         preferredName,
-        phonetic.length > 0 ? phonetic : null,
-        pronouns.length > 0 ? pronouns : null,
+        phonetic,
+        pronouns,
         funFact,
         tokenHash,
       ]

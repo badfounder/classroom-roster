@@ -26,9 +26,9 @@ dotenv.config({ path: path.join(root, ".env.local") });
 
 const DEMO_EMAIL = "demo@example.com";
 const DEMO_PASSWORD = "demo-password-12";
-const DEMO_NAME = "Demo Teacher";
-const CLASS_NAME = "Period 3 Biology (Demo)";
-const CLASS_CODE = "DEMO42"; // 6 chars, valid alphabet (no 0/O/1/I/L)
+const DEMO_NAME = "Demo Professor";
+const CLASS_NAME = "Intro Biology 101 (Demo)";
+const CLASS_CODE = "DEMO42";
 
 const STUDENTS = [
   {
@@ -36,6 +36,11 @@ const STUDENTS = [
     preferred_name: "Aaliyah",
     phonetic_spelling: "ah-LEE-uh",
     pronouns: "she/her",
+    hometown: "Lagos, Nigeria",
+    major: "Biology, pre-med",
+    favorite_food: "Jollof rice",
+    weekend_activity: "Jazz band rehearsals",
+    superpower: "Photographic memory for periodic tables",
     fun_fact: "Plays trumpet in the school jazz band.",
     submitted: true,
   },
@@ -44,6 +49,11 @@ const STUDENTS = [
     preferred_name: "Ben",
     phonetic_spelling: null,
     pronouns: "he/him",
+    hometown: "Vancouver, BC",
+    major: "Environmental Science",
+    favorite_food: "Dim sum",
+    weekend_activity: "Backpacking and trail photography",
+    superpower: "Always knowing which trail to take",
     fun_fact: "Has visited 14 national parks and is working on the rest.",
     submitted: true,
   },
@@ -52,6 +62,11 @@ const STUDENTS = [
     preferred_name: "Cami",
     phonetic_spelling: "KAH-mee",
     pronouns: "she/her",
+    hometown: "San Antonio, TX",
+    major: "Biochemistry",
+    favorite_food: "Sourdough with too much butter",
+    weekend_activity: "Baking experiments",
+    superpower: "Smelling when bread is exactly done",
     fun_fact: "Bakes sourdough every weekend.",
     submitted: true,
   },
@@ -60,6 +75,11 @@ const STUDENTS = [
     preferred_name: "Devon",
     phonetic_spelling: null,
     pronouns: "they/them",
+    hometown: "Detroit, MI",
+    major: "Mechanical Engineering",
+    favorite_food: "Coney dogs",
+    weekend_activity: "Robotics team",
+    superpower: "Reverse-engineering anything in five minutes",
     fun_fact: "Captain of the robotics team.",
     submitted: true,
   },
@@ -68,6 +88,11 @@ const STUDENTS = [
     preferred_name: "Lena",
     phonetic_spelling: "LEH-nuh",
     pronouns: "she/her",
+    hometown: "Sofia, Bulgaria",
+    major: "Linguistics + CS",
+    favorite_food: "Banitsa",
+    weekend_activity: "Language exchange meetups",
+    superpower: "Picking up any accent in a week",
     fun_fact: "Speaks four languages, trying to add Japanese.",
     submitted: true,
   },
@@ -76,6 +101,11 @@ const STUDENTS = [
     preferred_name: "Finn",
     phonetic_spelling: null,
     pronouns: "he/him",
+    hometown: "Dublin, Ireland",
+    major: "Mathematics",
+    favorite_food: "Brown bread with smoked salmon",
+    weekend_activity: "Online chess tournaments",
+    superpower: "Always being five moves ahead",
     fun_fact: "Competitive chess player since age 6.",
     submitted: true,
   },
@@ -84,6 +114,11 @@ const STUDENTS = [
     preferred_name: "Gracie",
     phonetic_spelling: null,
     pronouns: "she/her",
+    hometown: "Portland, OR",
+    major: "Veterinary studies",
+    favorite_food: "Anything from a food truck",
+    weekend_activity: "Animal shelter volunteer",
+    superpower: "Calming any nervous dog in 30 seconds",
     fun_fact: "Volunteer at the local animal shelter on Sundays.",
     submitted: true,
   },
@@ -119,10 +154,10 @@ async function main() {
     );
     if (existingClass[0]) {
       classId = existingClass[0].id;
-      await client.query(
-        `UPDATE classes SET name = $1 WHERE id = $2`,
-        [CLASS_NAME, classId]
-      );
+      await client.query(`UPDATE classes SET name = $1 WHERE id = $2`, [
+        CLASS_NAME,
+        classId,
+      ]);
     } else {
       const { rows } = await client.query(
         `INSERT INTO classes (teacher_id, name, class_code)
@@ -134,14 +169,44 @@ async function main() {
     }
 
     let inserted = 0;
+    let updated = 0;
     for (const s of STUDENTS) {
-      // Skip if a row with this legal_name already exists in this class.
-      const { rowCount: existing } = await client.query(
-        `SELECT 1 FROM students
+      const { rows: existingRows } = await client.query(
+        `SELECT id FROM students
          WHERE class_id = $1 AND lower(trim(legal_name)) = lower(trim($2))`,
         [classId, s.legal_name]
       );
-      if (existing) continue;
+      if (existingRows[0]) {
+        // Already there — refresh the demo fields so re-running picks up
+        // any new prompts we've added since the row was first inserted.
+        await client.query(
+          `UPDATE students SET
+             preferred_name = COALESCE($1, preferred_name),
+             phonetic_spelling = COALESCE($2, phonetic_spelling),
+             pronouns = COALESCE($3, pronouns),
+             fun_fact = COALESCE($4, fun_fact),
+             hometown = COALESCE($5, hometown),
+             major = COALESCE($6, major),
+             favorite_food = COALESCE($7, favorite_food),
+             weekend_activity = COALESCE($8, weekend_activity),
+             superpower = COALESCE($9, superpower)
+           WHERE id = $10`,
+          [
+            s.preferred_name ?? null,
+            s.phonetic_spelling ?? null,
+            s.pronouns ?? null,
+            s.fun_fact ?? null,
+            s.hometown ?? null,
+            s.major ?? null,
+            s.favorite_food ?? null,
+            s.weekend_activity ?? null,
+            s.superpower ?? null,
+            existingRows[0].id,
+          ]
+        );
+        updated += 1;
+        continue;
+      }
 
       const editToken = s.submitted
         ? crypto.randomBytes(24).toString("hex")
@@ -153,15 +218,15 @@ async function main() {
       await client.query(
         `INSERT INTO students (
            class_id, legal_name, preferred_name, phonetic_spelling, pronouns,
-           fun_fact, source, survey_submitted_at, consent_confirmed_at,
-           edit_token_hash
+           fun_fact, hometown, major, favorite_food, weekend_activity, superpower,
+           source, survey_submitted_at, consent_confirmed_at, edit_token_hash
          )
          VALUES (
-           $1, $2, $3, $4, $5, $6,
-           $7,
-           CASE WHEN $8::boolean THEN now() - (random() * interval '6 days') ELSE NULL END,
-           CASE WHEN $8::boolean THEN now() ELSE NULL END,
-           $9
+           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+           $12,
+           CASE WHEN $13::boolean THEN now() - (random() * interval '6 days') ELSE NULL END,
+           CASE WHEN $13::boolean THEN now() ELSE NULL END,
+           $14
          )`,
         [
           classId,
@@ -170,6 +235,11 @@ async function main() {
           s.phonetic_spelling ?? null,
           s.pronouns ?? null,
           s.fun_fact ?? null,
+          s.hometown ?? null,
+          s.major ?? null,
+          s.favorite_food ?? null,
+          s.weekend_activity ?? null,
+          s.superpower ?? null,
           s.submitted ? "survey" : "csv",
           s.submitted,
           editTokenHash,
@@ -181,14 +251,16 @@ async function main() {
     await client.query("COMMIT");
 
     console.log("✅ Demo seed complete.\n");
-    console.log("Teacher sign-in:");
+    console.log("Professor sign-in:");
     console.log(`  URL:      http://localhost:3000/login`);
     console.log(`  Email:    ${DEMO_EMAIL}`);
     console.log(`  Password: ${DEMO_PASSWORD}\n`);
     console.log("Class:");
     console.log(`  Name: ${CLASS_NAME}`);
     console.log(`  Code: ${CLASS_CODE}`);
-    console.log(`  Inserted ${inserted} new student row(s) (already present rows skipped).\n`);
+    console.log(
+      `  Inserted ${inserted} new row(s), refreshed ${updated} existing row(s).\n`
+    );
     console.log("Student flow (open in incognito or a different browser):");
     console.log(`  Survey: http://localhost:3000/join/${CLASS_CODE}/survey`);
     console.log(`  Join page: http://localhost:3000/join  (enter ${CLASS_CODE})`);
