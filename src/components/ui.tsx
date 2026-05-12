@@ -215,19 +215,25 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800 mb-8">
+    <div className="mb-8 flex flex-col gap-4 border-b border-zinc-200 pb-6 sm:flex-row sm:items-start sm:justify-between dark:border-zinc-800">
       <div className="min-w-0 flex-1">
         {eyebrow ? (
-          <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{eyebrow}</p>
+          <p className="truncate text-sm font-medium text-zinc-500 dark:text-zinc-400">
+            {eyebrow}
+          </p>
         ) : null}
-        <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl dark:text-zinc-50">
           {title}
         </h1>
         {description ? (
-          <p className="mt-2 max-w-2xl text-base text-zinc-600 dark:text-zinc-400">{description}</p>
+          <p className="mt-2 max-w-2xl text-base text-zinc-600 dark:text-zinc-400">
+            {description}
+          </p>
         ) : null}
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? (
+        <div className="flex flex-wrap items-center gap-2">{actions}</div>
+      ) : null}
     </div>
   );
 }
