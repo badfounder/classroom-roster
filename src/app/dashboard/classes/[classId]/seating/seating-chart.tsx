@@ -12,8 +12,14 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { placeStudent, removeFromChart } from "./seating-actions";
+import {
+  autoArrangeSeating,
+  clearAllSeating,
+  placeStudent,
+  removeFromChart,
+} from "./seating-actions";
 import { Alert, Button } from "@/components/ui";
+import { computeGridPositions } from "@/lib/seating-grid";
 
 type Student = {
   id: string;
@@ -95,6 +101,45 @@ export function SeatingChart({
     });
   }
 
+  function runAutoArrange() {
+    // Optimistically lay out every unplaced student in a grid that matches
+    // the server-side algorithm; the action then persists the same values.
+    const unplaced = students
+      .filter((s) => !positions[s.id])
+      .sort((a, b) => a.legalName.localeCompare(b.legalName));
+    if (unplaced.length === 0) return;
+    const grid = computeGridPositions(unplaced.length);
+    const next = { ...positions };
+    unplaced.forEach((s, i) => {
+      next[s.id] = grid[i]!;
+    });
+    setPositions(next);
+    setErrorMsg(null);
+    startTransition(async () => {
+      const result = await autoArrangeSeating(classId);
+      if (!result.ok) {
+        setErrorMsg(result.error);
+      }
+    });
+  }
+
+  function runClearAll() {
+    if (
+      Object.keys(positions).length > 0 &&
+      !window.confirm("Clear every seating position for this class?")
+    ) {
+      return;
+    }
+    setPositions({});
+    setErrorMsg(null);
+    startTransition(async () => {
+      const result = await clearAllSeating(classId);
+      if (!result.ok) {
+        setErrorMsg(result.error);
+      }
+    });
+  }
+
   function onDragEnd(event: DragEndEvent) {
     const { active, over, delta, activatorEvent } = event;
     const studentId = String(active.id);
@@ -133,6 +178,9 @@ export function SeatingChart({
     }
   }
 
+  const unplacedCount = sidebar.length;
+  const placedCount = placed.length;
+
   return (
     <DndContext sensors={sensors} onDragEnd={onDragEnd}>
       {errorMsg ? (
@@ -141,14 +189,36 @@ export function SeatingChart({
         </div>
       ) : null}
 
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <span className="font-medium text-zinc-900 dark:text-zinc-100">{placedCount}</span> placed
+          {" · "}
+          <span className="font-medium text-zinc-900 dark:text-zinc-100">{unplacedCount}</span> unplaced
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          {unplacedCount > 0 ? (
+            <Button type="button" variant="secondary" size="sm" onClick={runAutoArrange}>
+              ✨ Auto-arrange ({unplacedCount})
+            </Button>
+          ) : null}
+          {placedCount > 0 ? (
+            <Button type="button" variant="ghost" size="sm" onClick={runClearAll}>
+              Clear all
+            </Button>
+          ) : null}
+        </div>
+      </div>
+
       <div className="flex flex-col gap-6 lg:flex-row">
-        <Sidebar students={sidebar} />
+        <Sidebar students={sidebar} onAutoArrange={runAutoArrange} />
         <Canvas
           canvasRef={canvasRef}
           photoSrc={classroomPhotoSrc}
           placed={placed}
           positions={positions}
           onSelect={setSelectedStudentId}
+          onAutoArrange={runAutoArrange}
+          showAutoArrangeHint={unplacedCount > 0 && placedCount === 0}
         />
       </div>
 
@@ -169,7 +239,13 @@ export function SeatingChart({
   );
 }
 
-function Sidebar({ students }: { students: Student[] }) {
+function Sidebar({
+  students,
+  onAutoArrange,
+}: {
+  students: Student[];
+  onAutoArrange: () => void;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: SIDEBAR_DROPPABLE_ID });
   return (
     <aside
@@ -193,13 +269,18 @@ function Sidebar({ students }: { students: Student[] }) {
           Everyone is placed. ✨
         </p>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {students.map((s) => (
-            <li key={s.id}>
-              <DraggableCard student={s} variant="sidebar" />
-            </li>
-          ))}
-        </ul>
+        <>
+          <Button type="button" variant="secondary" size="sm" onClick={onAutoArrange}>
+            ✨ Auto-arrange all
+          </Button>
+          <ul className="flex flex-col gap-2">
+            {students.map((s) => (
+              <li key={s.id}>
+                <DraggableCard student={s} variant="sidebar" />
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </aside>
   );
@@ -211,12 +292,16 @@ function Canvas({
   placed,
   positions,
   onSelect,
+  onAutoArrange,
+  showAutoArrangeHint,
 }: {
   canvasRef: React.RefObject<HTMLDivElement | null>;
   photoSrc: string | null;
   placed: Student[];
   positions: Record<string, Position>;
   onSelect: (id: string) => void;
+  onAutoArrange: () => void;
+  showAutoArrangeHint: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: CANVAS_DROPPABLE_ID });
   return (
@@ -239,10 +324,19 @@ function Canvas({
           className="absolute inset-0 h-full w-full object-contain"
           draggable={false}
         />
+      ) : showAutoArrangeHint ? (
+        <div className="absolute inset-0 z-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+          <p className="max-w-sm text-sm text-zinc-600 dark:text-zinc-400">
+            No classroom photo uploaded. Upload one on the class page to anchor your layout, or
+            start with an auto-arranged grid:
+          </p>
+          <Button type="button" variant="primary" onClick={onAutoArrange}>
+            ✨ Auto-arrange in a grid
+          </Button>
+        </div>
       ) : (
         <div className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
-          No classroom photo. Upload one on the class page to anchor your seating layout — cards
-          still drop here without it.
+          No classroom photo. Drag cards anywhere, or upload a photo on the class page.
         </div>
       )}
       {placed.map((s) => {
@@ -296,6 +390,13 @@ function DraggableCard({
   }
 
   const pos = position ?? { x: 50, y: 50 };
+  // Compose the drag delta with a fixed -50%/-50% translate so the stored
+  // (x, y) percent is the card's *center* — that keeps the rightmost grid
+  // column on the canvas regardless of card width.
+  const dragTransform = CSS.Translate.toString(transform);
+  const composedTransform = dragTransform
+    ? `${dragTransform} translate(-50%, -50%)`
+    : "translate(-50%, -50%)";
   return (
     <div
       ref={setNodeRef}
@@ -306,21 +407,21 @@ function DraggableCard({
         if (!isDragging) onSelect?.(student.id);
       }}
       style={{
-        transform: CSS.Translate.toString(transform),
+        transform: composedTransform,
         left: `${pos.x}%`,
         top: `${pos.y}%`,
         touchAction: "none",
       }}
-      className={`${baseClasses} absolute cursor-grab border-zinc-300 ring-2 ring-white/70 dark:border-zinc-600 dark:ring-zinc-950/60 ${
+      className={`${baseClasses} absolute max-w-[10rem] cursor-grab border-zinc-300 ring-2 ring-white/70 dark:border-zinc-600 dark:ring-zinc-950/60 ${
         isDragging ? "opacity-80 z-10 shadow-lg" : "hover:shadow-md"
       }`}
     >
-      <CardInner student={student} />
+      <CardInner student={student} truncate />
     </div>
   );
 }
 
-function CardInner({ student }: { student: Student }) {
+function CardInner({ student, truncate }: { student: Student; truncate?: boolean }) {
   const name = displayName(student);
   return (
     <>
@@ -340,7 +441,13 @@ function CardInner({ student }: { student: Student }) {
           {name.slice(0, 1).toUpperCase()}
         </span>
       )}
-      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{name}</span>
+      <span
+        className={`text-sm font-medium text-zinc-900 dark:text-zinc-100 ${
+          truncate ? "min-w-0 truncate" : ""
+        }`}
+      >
+        {name}
+      </span>
     </>
   );
 }
