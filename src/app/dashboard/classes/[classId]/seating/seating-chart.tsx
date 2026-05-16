@@ -553,6 +553,11 @@ function Canvas({
           No classroom photo. Drag cards anywhere, or upload a photo on the class page.
         </div>
       )}
+      {/* Render table outlines under the seats so a cluster of 6 dots
+          obviously reads as "6 chairs around table 3" instead of two rows. */}
+      {computeTableOutlines(slots).map((box) => (
+        <TableOutline key={box.id} {...box} />
+      ))}
       {slots.map((slot) => (
         <SeatSlotMarker
           key={slot.id}
@@ -797,6 +802,70 @@ function RowColForm({
         Generate {rows * cols} seats
       </Button>
     </form>
+  );
+}
+
+type TableOutlineData = {
+  id: string;
+  x: number; // top-left, percent
+  y: number;
+  w: number;
+  h: number;
+  label: string;
+};
+
+/**
+ * Group seat slots by their "T{n}·S{n}" label prefix and emit one rectangle
+ * per group sized to sit just inside the ring of seats. Slots without that
+ * label format (manual click-to-place, AI detection) are ignored.
+ */
+function computeTableOutlines(slots: SeatSlot[]): TableOutlineData[] {
+  const groups = new Map<string, SeatSlot[]>();
+  for (const s of slots) {
+    const m = s.label?.match(/^T(\d+)·/);
+    if (!m) continue;
+    const key = m[1]!;
+    const existing = groups.get(key);
+    if (existing) existing.push(s);
+    else groups.set(key, [s]);
+  }
+  const out: TableOutlineData[] = [];
+  for (const [id, members] of groups) {
+    if (members.length < 2) continue;
+    const xs = members.map((m) => m.x);
+    const ys = members.map((m) => m.y);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    // Inset slightly so the rectangle sits inside the ring of seats — gives
+    // the "seats around a table" silhouette rather than "rectangle enclosing
+    // a row of dots."
+    const insetX = 1.2;
+    const insetY = 1.2;
+    out.push({
+      id,
+      label: `T${id}`,
+      x: minX + insetX,
+      y: minY + insetY,
+      w: Math.max(0, maxX - minX - insetX * 2),
+      h: Math.max(0, maxY - minY - insetY * 2),
+    });
+  }
+  return out;
+}
+
+function TableOutline({ x, y, w, h, label }: TableOutlineData) {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute rounded-md border border-zinc-300 bg-zinc-200/40 dark:border-zinc-600 dark:bg-zinc-800/40"
+      style={{ left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%` }}
+    >
+      <span className="absolute left-1 top-1 select-none text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+        {label}
+      </span>
+    </div>
   );
 }
 
