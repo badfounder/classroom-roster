@@ -70,6 +70,25 @@ export default async function SeatingChartPage({
     initialPositions[r.student_id] = { x: Number(r.x), y: Number(r.y) };
   }
 
+  const { rows: slotRows } = await pool.query<{
+    id: string;
+    x: string;
+    y: string;
+    label: string | null;
+  }>(
+    `SELECT id, x::text, y::text, label FROM seat_slots
+     WHERE class_id = $1 ORDER BY created_at ASC`,
+    [classId]
+  );
+  const initialSlots = slotRows.map((r) => ({
+    id: r.id,
+    x: Number(r.x),
+    y: Number(r.y),
+    label: r.label,
+  }));
+
+  const aiDetectionAvailable = Boolean(process.env.ANTHROPIC_API_KEY);
+
   const students = studentRows.map((r) => ({
     id: r.id,
     legalName: r.legal_name,
@@ -114,6 +133,8 @@ export default async function SeatingChartPage({
           classroomPhotoSrc={classroomPhotoSrc}
           students={students}
           initialPositions={initialPositions}
+          initialSlots={initialSlots}
+          aiDetectionAvailable={aiDetectionAvailable}
         />
       )}
     </div>

@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth-options";
 import { getPool } from "@/lib/db";
 import { computeGridPositions } from "@/lib/seating-grid";
+import { detectSeatsFromPhoto } from "@/lib/detect-seats";
 
 async function assertOwnsClassAndStudent(
   teacherId: string,
@@ -137,6 +138,142 @@ export async function clearAllSeating(
   revalidatePath(`/dashboard/classes/${classId}/seating`);
   return { ok: true };
 }
+
+/* ----------------------- Seat slot CRUD ----------------------- */
+
+async function assertOwnsClass(teacherId: string, classId: string): Promise<boolean> {
+  const pool = getPool();
+  const { rowCount } = await pool.query(
+    `SELECT 1 FROM classes WHERE id = $1 AND teacher_id = $2`,
+    [classId, teacherId]
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+export async function addSeatSlot(
+  classId: string,
+  x: number,
+  y: number,
+  label?: string
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const session = await getServerSession(authOptions);
+  const teacherId = session?.user?.id;
+  if (!teacherId) return { ok: false, error: "Not signed in." };
+  if (!(await assertOwnsClass(teacherId, classId))) {
+    return { ok: false, error: "Class not found." };
+  }
+
+  const pool = getPool();
+  const { rows } = await pool.query<{ id: string }>(
+    `INSERT INTO seat_slots (class_id, x, y, label)
+     VALUES ($1, $2, $3, $4) RETURNING id`,
+    [classId, clampPercent(x), clampPercent(y), label?.trim() || null]
+  );
+
+  revalidatePath(`/dashboard/classes/${classId}/seating`);
+  return { ok: true, id: rows[0]!.id };
+}
+
+export async function deleteSeatSlot(
+  classId: string,
+  slotId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const session = await getServerSession(authOptions);
+  const teacherId = session?.user?.id;
+  if (!teacherId) return { ok: false, error: "Not signed in." };
+  if (!(await assertOwnsClass(teacherId, classId))) {
+    return { ok: false, error: "Class not found." };
+  }
+
+  const pool = getPool();
+  await pool.query(`DELETE FROM seat_slots WHERE id = $1 AND class_id = $2`, [
+    slotId,
+    classId,
+  ]);
+  revalidatePath(`/dashboard/classes/${classId}/seating`);
+  return { ok: true };
+}
+
+export async function clearSeatSlots(
+  classId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const session = await getServerSession(authOptions);
+  const teacherId = session?.user?.id;
+  if (!teacherId) return { ok: false, error: "Not signed in." };
+  if (!(await assertOwnsClass(teacherId, classId))) {
+    return { ok: false, error: "Class not found." };
+  }
+
+  const pool = getPool();
+  await pool.query(`DELETE FROM seat_slots WHERE class_id = $1`, [classId]);
+  revalidatePath(`/dashboard/classes/${classId}/seating`);
+  return { ok: true };
+}
+
+/**
+ * Ask Claude to detect seat positions in the classroom photo and persist
+ * them. Replaces any existing slots so the user gets a clean detection.
+ * Reports how many were created so the UI can confirm.
+ */
+export async function detectSeatsForClass(
+  classId: string
+): Promise<
+  | { ok: true; slots: Array<{ id: string; x: number; y: number; label: string | null }> }
+  | { ok: false; error: string }
+> {
+  const session = await getServerSession(authOptions);
+  const teacherId = session?.user?.id;
+  if (!teacherId) return { ok: false, error: "Not signed in." };
+
+  const pool = getPool();
+  const { rows } = await pool.query<{ classroom_photo_path: string | null }>(
+    `SELECT classroom_photo_path FROM classes
+     WHERE id = $1 AND teacher_id = $2`,
+    [classId, teacherId]
+  );
+  const cls = rows[0];
+  if (!cls) return { ok: false, error: "Class not found." };
+  if (!cls.classroom_photo_path) {
+    return {
+      ok: false,
+      error: "Upload a classroom photo first, then try detection.",
+    };
+  }
+
+  const detection = await detectSeatsFromPhoto(cls.classroom_photo_path);
+  if (!detection.ok) return detection;
+  if (detection.seats.length === 0) {
+    return { ok: false, error: "Claude didn't find any seats in this image." };
+  }
+
+  const client = await pool.connect();
+  const inserted: Array<{ id: string; x: number; y: number; label: string | null }> = [];
+  try {
+    await client.query("BEGIN");
+    await client.query(`DELETE FROM seat_slots WHERE class_id = $1`, [classId]);
+    for (const seat of detection.seats) {
+      const x = clampPercent(seat.x);
+      const y = clampPercent(seat.y);
+      const { rows: ins } = await client.query<{ id: string }>(
+        `INSERT INTO seat_slots (class_id, x, y, label)
+         VALUES ($1, $2, $3, $4) RETURNING id`,
+        [classId, x, y, seat.label ?? null]
+      );
+      inserted.push({ id: ins[0]!.id, x, y, label: seat.label ?? null });
+    }
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+
+  revalidatePath(`/dashboard/classes/${classId}/seating`);
+  return { ok: true, slots: inserted };
+}
+
+/* ------------------- Student placement ------------------- */
 
 export async function removeFromChart(
   classId: string,

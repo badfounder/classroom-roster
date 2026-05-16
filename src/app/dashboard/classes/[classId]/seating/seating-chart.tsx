@@ -13,8 +13,12 @@ import {
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  addSeatSlot,
   autoArrangeSeating,
   clearAllSeating,
+  clearSeatSlots,
+  deleteSeatSlot,
+  detectSeatsForClass,
   placeStudent,
   removeFromChart,
 } from "./seating-actions";
@@ -39,11 +43,20 @@ type Student = {
 
 type Position = { x: number; y: number };
 
+export type SeatSlot = {
+  id: string;
+  x: number;
+  y: number;
+  label: string | null;
+};
+
 type Props = {
   classId: string;
   classroomPhotoSrc: string | null;
   students: Student[];
   initialPositions: Record<string, Position>;
+  initialSlots: SeatSlot[];
+  aiDetectionAvailable: boolean;
 };
 
 const SIDEBAR_DROPPABLE_ID = "seating-sidebar";
@@ -64,10 +77,18 @@ export function SeatingChart({
   classroomPhotoSrc,
   students,
   initialPositions,
+  initialSlots,
+  aiDetectionAvailable,
 }: Props) {
   const [positions, setPositions] = useState<Record<string, Position>>(initialPositions);
+  const [slots, setSlots] = useState<SeatSlot[]>(initialSlots);
+  const [mode, setMode] = useState<"arrange" | "edit-seats">(
+    initialSlots.length === 0 && classroomPhotoSrc ? "edit-seats" : "arrange"
+  );
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
+  const [detecting, setDetecting] = useState(false);
   const [, startTransition] = useTransition();
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -120,6 +141,89 @@ export function SeatingChart({
       if (!result.ok) {
         setErrorMsg(result.error);
       }
+    });
+  }
+
+  function handleCanvasClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (mode !== "edit-seats") return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    // Only fire when the click landed on the canvas itself, not on a child
+    // (e.g. clicking a slot marker should delete it via its own handler).
+    if (e.target !== canvas && !(e.target as HTMLElement).dataset.canvasClick) {
+      return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const x = clamp(((e.clientX - rect.left) / rect.width) * 100, 0, 100);
+    const y = clamp(((e.clientY - rect.top) / rect.height) * 100, 0, 100);
+    const tempId = `tmp-${Date.now()}`;
+    const optimistic: SeatSlot = { id: tempId, x, y, label: null };
+    setSlots((prev) => [...prev, optimistic]);
+    setErrorMsg(null);
+    startTransition(async () => {
+      const result = await addSeatSlot(classId, x, y);
+      if (!result.ok) {
+        setErrorMsg(result.error);
+        setSlots((prev) => prev.filter((s) => s.id !== tempId));
+      } else {
+        setSlots((prev) =>
+          prev.map((s) => (s.id === tempId ? { ...s, id: result.id } : s))
+        );
+      }
+    });
+  }
+
+  function removeSlot(slotId: string) {
+    const snapshot = slots;
+    setSlots((prev) => prev.filter((s) => s.id !== slotId));
+    startTransition(async () => {
+      const result = await deleteSeatSlot(classId, slotId);
+      if (!result.ok) {
+        setErrorMsg(result.error);
+        setSlots(snapshot);
+      }
+    });
+  }
+
+  function runClearSlots() {
+    if (slots.length === 0) return;
+    if (!window.confirm(`Remove all ${slots.length} seat slot(s)?`)) return;
+    const snapshot = slots;
+    setSlots([]);
+    startTransition(async () => {
+      const result = await clearSeatSlots(classId);
+      if (!result.ok) {
+        setErrorMsg(result.error);
+        setSlots(snapshot);
+      }
+    });
+  }
+
+  function runDetect() {
+    if (detecting) return;
+    if (
+      slots.length > 0 &&
+      !window.confirm(
+        `Replace the ${slots.length} existing seat slot(s) with Claude's detection?`
+      )
+    ) {
+      return;
+    }
+    setErrorMsg(null);
+    setInfoMsg(null);
+    setDetecting(true);
+    startTransition(async () => {
+      const result = await detectSeatsForClass(classId);
+      setDetecting(false);
+      if (!result.ok) {
+        setErrorMsg(result.error);
+        return;
+      }
+      setSlots(result.slots);
+      setMode("edit-seats");
+      setInfoMsg(
+        `Claude found ${result.slots.length} seat${result.slots.length === 1 ? "" : "s"}. Drag any to fine-tune.`
+      );
     });
   }
 
@@ -188,26 +292,92 @@ export function SeatingChart({
           <Alert variant="error">{errorMsg}</Alert>
         </div>
       ) : null}
-
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          <span className="font-medium text-zinc-900 dark:text-zinc-100">{placedCount}</span> placed
-          {" · "}
-          <span className="font-medium text-zinc-900 dark:text-zinc-100">{unplacedCount}</span> unplaced
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          {unplacedCount > 0 ? (
-            <Button type="button" variant="secondary" size="sm" onClick={runAutoArrange}>
-              ✨ Auto-arrange ({unplacedCount})
-            </Button>
-          ) : null}
-          {placedCount > 0 ? (
-            <Button type="button" variant="ghost" size="sm" onClick={runClearAll}>
-              Clear all
-            </Button>
-          ) : null}
+      {infoMsg ? (
+        <div className="mb-4">
+          <Alert variant="success">{infoMsg}</Alert>
         </div>
+      ) : null}
+
+      {/* Mode tabs */}
+      <div className="mb-3 inline-flex rounded-lg border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900/60">
+        <button
+          type="button"
+          onClick={() => setMode("arrange")}
+          className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+            mode === "arrange"
+              ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100"
+              : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+          }`}
+        >
+          Arrange students
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("edit-seats")}
+          className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+            mode === "edit-seats"
+              ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100"
+              : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+          }`}
+        >
+          Edit seats ({slots.length})
+        </button>
       </div>
+
+      {mode === "arrange" ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <span className="font-medium text-zinc-900 dark:text-zinc-100">{placedCount}</span> placed
+            {" · "}
+            <span className="font-medium text-zinc-900 dark:text-zinc-100">{unplacedCount}</span> unplaced
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {unplacedCount > 0 ? (
+              <Button type="button" variant="secondary" size="sm" onClick={runAutoArrange}>
+                ✨ Auto-arrange ({unplacedCount})
+              </Button>
+            ) : null}
+            {placedCount > 0 ? (
+              <Button type="button" variant="ghost" size="sm" onClick={runClearAll}>
+                Clear all
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            Click anywhere on the canvas to drop a seat. Click a seat to remove it.
+            {classroomPhotoSrc && aiDetectionAvailable
+              ? " Or let Claude propose seats from your photo."
+              : ""}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {classroomPhotoSrc ? (
+              aiDetectionAvailable ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={runDetect}
+                  disabled={detecting}
+                  title="Sends the classroom photo (no student data) to Anthropic's API"
+                >
+                  {detecting ? "Detecting…" : "✨ Detect from photo"}
+                </Button>
+              ) : (
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                  Add ANTHROPIC_API_KEY to enable AI detection
+                </span>
+              )
+            ) : null}
+            {slots.length > 0 ? (
+              <Button type="button" variant="ghost" size="sm" onClick={runClearSlots}>
+                Clear seats
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-6 lg:flex-row">
         <Sidebar students={sidebar} onAutoArrange={runAutoArrange} />
@@ -218,7 +388,11 @@ export function SeatingChart({
           positions={positions}
           onSelect={setSelectedStudentId}
           onAutoArrange={runAutoArrange}
-          showAutoArrangeHint={unplacedCount > 0 && placedCount === 0}
+          showAutoArrangeHint={unplacedCount > 0 && placedCount === 0 && mode === "arrange"}
+          slots={slots}
+          mode={mode}
+          onCanvasClick={handleCanvasClick}
+          onRemoveSlot={removeSlot}
         />
       </div>
 
@@ -294,6 +468,10 @@ function Canvas({
   onSelect,
   onAutoArrange,
   showAutoArrangeHint,
+  slots,
+  mode,
+  onCanvasClick,
+  onRemoveSlot,
 }: {
   canvasRef: React.RefObject<HTMLDivElement | null>;
   photoSrc: string | null;
@@ -302,6 +480,10 @@ function Canvas({
   onSelect: (id: string) => void;
   onAutoArrange: () => void;
   showAutoArrangeHint: boolean;
+  slots: SeatSlot[];
+  mode: "arrange" | "edit-seats";
+  onCanvasClick: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onRemoveSlot: (slotId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: CANVAS_DROPPABLE_ID });
   return (
@@ -310,7 +492,11 @@ function Canvas({
         setNodeRef(node);
         canvasRef.current = node;
       }}
+      onClick={onCanvasClick}
+      data-canvas-click="true"
       className={`relative aspect-video min-h-[28rem] w-full flex-1 overflow-hidden rounded-2xl border-2 bg-zinc-100 shadow-sm dark:bg-zinc-950 ${
+        mode === "edit-seats" ? "cursor-crosshair" : ""
+      } ${
         isOver
           ? "border-zinc-500 dark:border-zinc-400"
           : "border-zinc-200 dark:border-zinc-800"
@@ -339,6 +525,14 @@ function Canvas({
           No classroom photo. Drag cards anywhere, or upload a photo on the class page.
         </div>
       )}
+      {slots.map((slot) => (
+        <SeatSlotMarker
+          key={slot.id}
+          slot={slot}
+          interactive={mode === "edit-seats"}
+          onRemove={() => onRemoveSlot(slot.id)}
+        />
+      ))}
       {placed.map((s) => {
         const pos = positions[s.id]!;
         return (
@@ -351,6 +545,46 @@ function Canvas({
           />
         );
       })}
+    </div>
+  );
+}
+
+function SeatSlotMarker({
+  slot,
+  interactive,
+  onRemove,
+}: {
+  slot: SeatSlot;
+  interactive: boolean;
+  onRemove: () => void;
+}) {
+  return (
+    <div
+      onClick={(e) => {
+        e.stopPropagation();
+        if (interactive) onRemove();
+      }}
+      style={{
+        left: `${slot.x}%`,
+        top: `${slot.y}%`,
+        transform: "translate(-50%, -50%)",
+      }}
+      title={
+        interactive
+          ? slot.label
+            ? `${slot.label} — click to remove`
+            : "Click to remove"
+          : slot.label ?? "Seat"
+      }
+      className={`absolute z-0 flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 ${
+        interactive
+          ? "cursor-pointer border-rose-500 bg-rose-100 text-rose-700 shadow-sm hover:scale-110 hover:bg-rose-200 dark:border-rose-400 dark:bg-rose-950/60 dark:text-rose-200"
+          : "border-zinc-400/60 bg-white/70 backdrop-blur-sm dark:border-zinc-500/60 dark:bg-zinc-800/60"
+      }`}
+    >
+      <span className="text-[10px] font-semibold leading-none" aria-hidden>
+        {interactive ? "×" : ""}
+      </span>
     </div>
   );
 }
