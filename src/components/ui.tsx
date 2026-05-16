@@ -65,6 +65,17 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 const inputBase =
   "w-full rounded-lg border border-zinc-300 bg-white px-3.5 py-2.5 text-base text-zinc-900 shadow-sm placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-4 focus:ring-zinc-900/5 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-500 dark:focus:ring-zinc-100/10";
 
+// Tell common browser extensions to skip our inputs so they don't inject
+// attributes after hydration (the cause of dev-only "1 Issue" badges from
+// Grammarly, 1Password, LastPass, etc.).
+const EXTENSION_OPTOUT = {
+  "data-gramm": "false",
+  "data-gramm_editor": "false",
+  "data-enable-grammarly": "false",
+  "data-1p-ignore": "true",
+  "data-lpignore": "true",
+} as const;
+
 export const Input = React.forwardRef<
   HTMLInputElement,
   React.InputHTMLAttributes<HTMLInputElement>
@@ -74,6 +85,7 @@ export const Input = React.forwardRef<
       <input
         ref={ref}
         type="file"
+        suppressHydrationWarning
         className={cx(
           "block w-full text-sm text-zinc-700 file:mr-4 file:rounded-md file:border-0 file:bg-zinc-200 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-900 hover:file:bg-zinc-300 dark:text-zinc-300 dark:file:bg-zinc-700 dark:file:text-zinc-100 dark:hover:file:bg-zinc-600",
           className
@@ -82,7 +94,16 @@ export const Input = React.forwardRef<
       />
     );
   }
-  return <input ref={ref} type={type} className={cx(inputBase, className)} {...props} />;
+  return (
+    <input
+      ref={ref}
+      type={type}
+      suppressHydrationWarning
+      {...EXTENSION_OPTOUT}
+      className={cx(inputBase, className)}
+      {...props}
+    />
+  );
 });
 
 export const Textarea = React.forwardRef<
@@ -93,6 +114,8 @@ export const Textarea = React.forwardRef<
     <textarea
       ref={ref}
       rows={rows}
+      suppressHydrationWarning
+      {...EXTENSION_OPTOUT}
       className={cx(inputBase, "resize-y", className)}
       {...props}
     />
