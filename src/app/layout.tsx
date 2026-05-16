@@ -29,7 +29,13 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col bg-background font-sans text-foreground">
+      <body
+        className="flex min-h-full flex-col bg-background font-sans text-foreground"
+        // Browser extensions (Grammarly, password managers) inject body
+        // attributes before React hydrates. They cause harmless hydration
+        // warnings; suppressing keeps the dev console clean.
+        suppressHydrationWarning
+      >
         <Providers>{children}</Providers>
       </body>
     </html>

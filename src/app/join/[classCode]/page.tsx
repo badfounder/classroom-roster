@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { normalizeClassCode } from "@/lib/class-code";
 import { getPool } from "@/lib/db";
-import { Button, Card } from "@/components/ui";
+import { AuthShell, Button, Card } from "@/components/ui";
 
 export default async function JoinClassLandingPage({
   params,
@@ -26,7 +26,7 @@ export default async function JoinClassLandingPage({
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 py-16">
+    <AuthShell>
       <Card>
         <p className="text-sm font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
           Class
@@ -50,6 +50,6 @@ export default async function JoinClassLandingPage({
           </Link>
         </div>
       </Card>
-    </div>
+    </AuthShell>
   );
 }

@@ -4,7 +4,7 @@ import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { Alert, Button, Card, Field, Input } from "@/components/ui";
+import { Alert, AuthShell, Button, Card, Field, Input } from "@/components/ui";
 
 export function LoginForm() {
   const router = useRouter();
@@ -36,7 +36,7 @@ export function LoginForm() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 py-16">
+    <AuthShell>
       <Card>
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
           Sign in
@@ -84,6 +84,6 @@ export function LoginForm() {
           </Link>
         </p>
       </Card>
-    </div>
+    </AuthShell>
   );
 }

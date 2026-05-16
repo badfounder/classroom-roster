@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { submitClassCode, type JoinFormState } from "./actions";
-import { Alert, Button, Card } from "@/components/ui";
+import { Alert, AuthShell, Button, Card } from "@/components/ui";
 
 export function JoinForm() {
   const [state, formAction, pending] = useActionState(
@@ -12,7 +12,7 @@ export function JoinForm() {
   );
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 py-16">
+    <AuthShell>
       <Card>
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
           Join your class
@@ -57,6 +57,6 @@ export function JoinForm() {
           </Link>
         </p>
       </Card>
-    </div>
+    </AuthShell>
   );
 }

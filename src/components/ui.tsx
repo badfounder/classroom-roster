@@ -285,6 +285,42 @@ export function Badge({
   );
 }
 
+/**
+ * Outer shell for the short auth/onboarding pages (login, signup, join).
+ * Without it those pages render as a 28rem card floating in a sea of
+ * whitespace on wide monitors. The shell adds a brand top bar and a
+ * thin footer so the page feels like part of the app, and gates the
+ * content column so the card sits in a more comfortable proportion.
+ */
+export function AuthShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-screen flex-col">
+      <header className="border-b border-zinc-200 dark:border-zinc-800">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+          <Link
+            href="/"
+            className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50"
+          >
+            Classroom Roster
+          </Link>
+          <Link
+            href="/join"
+            className="rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            I&rsquo;m a student
+          </Link>
+        </div>
+      </header>
+      <main className="flex flex-1 items-center justify-center px-6 py-10">
+        <div className="w-full max-w-md">{children}</div>
+      </main>
+      <footer className="border-t border-zinc-200 py-5 text-center text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+        Self-hosted &middot; No telemetry
+      </footer>
+    </div>
+  );
+}
+
 export function NavBack({ href, label }: { href: string; label: string }) {
   return (
     <Link

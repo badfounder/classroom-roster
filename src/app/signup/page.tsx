@@ -3,13 +3,13 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { registerTeacher } from "./actions";
-import { Alert, Button, Card, Field, Input } from "@/components/ui";
+import { Alert, AuthShell, Button, Card, Field, Input } from "@/components/ui";
 
 export default function SignupPage() {
   const [state, formAction, pending] = useActionState(registerTeacher, undefined);
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 py-16">
+    <AuthShell>
       <Card>
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
           Create teacher account
@@ -71,6 +71,6 @@ export default function SignupPage() {
           </Link>
         </p>
       </Card>
-    </div>
+    </AuthShell>
   );
 }
