@@ -20,6 +20,7 @@ import {
   deleteSeatSlot,
   detectSeatsForClass,
   generateSeatGrid,
+  generateSeatTables,
   placeStudent,
   removeFromChart,
 } from "./seating-actions";
@@ -200,6 +201,31 @@ export function SeatingChart({
     });
   }
 
+  function runGenerateTables(tables: number, seatsPerTable: number) {
+    if (
+      slots.length > 0 &&
+      !window.confirm(
+        `Replace the ${slots.length} existing seat slot(s) with ${tables} table(s) of ${seatsPerTable} seat(s)?`
+      )
+    ) {
+      return;
+    }
+    setErrorMsg(null);
+    setInfoMsg(null);
+    startTransition(async () => {
+      const result = await generateSeatTables(classId, tables, seatsPerTable);
+      if (!result.ok) {
+        setErrorMsg(result.error);
+        return;
+      }
+      setSlots(result.slots);
+      setMode("edit-seats");
+      setInfoMsg(
+        `Laid out ${tables} table(s) of ${seatsPerTable} seats (${result.slots.length} total).`
+      );
+    });
+  }
+
   function runGenerateGrid(rows: number, cols: number) {
     if (
       slots.length > 0 &&
@@ -369,31 +395,16 @@ export function SeatingChart({
           </div>
         </div>
       ) : (
-        <div className="mb-4 space-y-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Click anywhere on the canvas to drop a seat, or generate a grid below.
-          </p>
-          <div className="flex flex-wrap items-end gap-3">
-            <RowColForm onGenerate={runGenerateGrid} />
-            {classroomPhotoSrc && aiDetectionAvailable ? (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={runDetect}
-                disabled={detecting}
-                title="Sends the classroom photo (no student data) to Anthropic's API"
-              >
-                {detecting ? "Detecting…" : "✨ Detect from photo (AI)"}
-              </Button>
-            ) : null}
-            {slots.length > 0 ? (
-              <Button type="button" variant="ghost" size="sm" onClick={runClearSlots}>
-                Clear seats
-              </Button>
-            ) : null}
-          </div>
-        </div>
+        <EditSeatsToolbar
+          slotsCount={slots.length}
+          classroomPhotoSrc={classroomPhotoSrc}
+          aiDetectionAvailable={aiDetectionAvailable}
+          detecting={detecting}
+          onGenerateGrid={runGenerateGrid}
+          onGenerateTables={runGenerateTables}
+          onDetect={runDetect}
+          onClearSlots={runClearSlots}
+        />
       )}
 
       <div className="flex flex-col gap-6 lg:flex-row">
@@ -563,6 +574,166 @@ function Canvas({
         );
       })}
     </div>
+  );
+}
+
+type LayoutMode = "rows" | "tables" | "manual";
+
+function EditSeatsToolbar({
+  slotsCount,
+  classroomPhotoSrc,
+  aiDetectionAvailable,
+  detecting,
+  onGenerateGrid,
+  onGenerateTables,
+  onDetect,
+  onClearSlots,
+}: {
+  slotsCount: number;
+  classroomPhotoSrc: string | null;
+  aiDetectionAvailable: boolean;
+  detecting: boolean;
+  onGenerateGrid: (rows: number, cols: number) => void;
+  onGenerateTables: (tables: number, seatsPerTable: number) => void;
+  onDetect: () => void;
+  onClearSlots: () => void;
+}) {
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("rows");
+  const canAi = Boolean(classroomPhotoSrc && aiDetectionAvailable);
+
+  return (
+    <div className="mb-4 space-y-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5 dark:border-zinc-800 dark:bg-zinc-900/60">
+          <ModeChip
+            active={layoutMode === "rows"}
+            onClick={() => setLayoutMode("rows")}
+            label="Rows × Cols"
+          />
+          <ModeChip
+            active={layoutMode === "tables"}
+            onClick={() => setLayoutMode("tables")}
+            label="Tables"
+          />
+          <ModeChip
+            active={layoutMode === "manual"}
+            onClick={() => setLayoutMode("manual")}
+            label="Manual"
+          />
+        </div>
+        {slotsCount > 0 ? (
+          <Button type="button" variant="ghost" size="sm" onClick={onClearSlots}>
+            Clear seats
+          </Button>
+        ) : null}
+      </div>
+
+      {layoutMode === "rows" ? (
+        <RowColForm onGenerate={onGenerateGrid} />
+      ) : null}
+      {layoutMode === "tables" ? (
+        <TablesForm onGenerate={onGenerateTables} />
+      ) : null}
+      {layoutMode === "manual" ? (
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          Click anywhere on the canvas to drop a seat. Click an existing seat to remove it.
+        </p>
+      ) : null}
+
+      {canAi ? (
+        <div className="border-t border-zinc-200 pt-3 dark:border-zinc-800">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Or use AI to read your classroom photo:
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={onDetect}
+            disabled={detecting}
+            title="Sends the classroom photo (no student data) to Anthropic's API"
+            className="mt-2"
+          >
+            {detecting ? "Detecting…" : "✨ Detect from photo (AI)"}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ModeChip({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-md px-3 py-1 text-xs font-medium transition ${
+        active
+          ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100"
+          : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function TablesForm({
+  onGenerate,
+}: {
+  onGenerate: (tables: number, seatsPerTable: number) => void;
+}) {
+  const [tables, setTables] = useState(8);
+  const [seatsPerTable, setSeatsPerTable] = useState(6);
+
+  const inputClass =
+    "w-16 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-center text-sm tabular text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-4 focus:ring-zinc-900/5 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100";
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onGenerate(tables, seatsPerTable);
+      }}
+      className="flex flex-wrap items-end gap-2"
+    >
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+        Tables
+        <input
+          type="number"
+          min={1}
+          max={20}
+          value={tables}
+          onChange={(e) => setTables(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+          className={inputClass}
+        />
+      </label>
+      <span className="pb-2 text-zinc-400">×</span>
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+        Seats per table
+        <input
+          type="number"
+          min={1}
+          max={12}
+          value={seatsPerTable}
+          onChange={(e) =>
+            setSeatsPerTable(Math.max(1, Math.min(12, Number(e.target.value) || 1)))
+          }
+          className={inputClass}
+        />
+      </label>
+      <Button type="submit" size="sm">
+        Generate {tables * seatsPerTable} seats
+      </Button>
+    </form>
   );
 }
 

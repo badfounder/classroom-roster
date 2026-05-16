@@ -52,6 +52,84 @@ export function computeRowColPositions(
   return out;
 }
 
+/**
+ * Group-work layout: a grid of tables, each surrounded by N seats. Seats
+ * split between the long edges of the table (3 + 3 for six, 3 + 2 for five,
+ * etc.). Optionally adds one seat at each short end when the per-table count
+ * is large enough to warrant it.
+ */
+export function computeTablePositions(
+  tables: number,
+  seatsPerTable: number
+): Array<{ x: number; y: number; label: string }> {
+  if (tables <= 0 || seatsPerTable <= 0) return [];
+
+  const padX = 8;
+  const padY = 12;
+  const cols = Math.ceil(Math.sqrt(tables));
+  const rows = Math.ceil(tables / cols);
+  const cellW = (100 - padX * 2) / cols;
+  const cellH = (100 - padY * 2) / rows;
+  // The "table" itself is a rectangle within the cell. Long axis horizontal.
+  const tableW = cellW * 0.7;
+  const tableH = cellH * 0.4;
+
+  const out: Array<{ x: number; y: number; label: string }> = [];
+
+  // Distribute seats: prefer top+bottom edges, fall back to short ends for
+  // 7+ seats per table.
+  const sideSeats = seatsPerTable >= 7 ? Math.min(2, seatsPerTable - 6) : 0;
+  const longEdgeTotal = seatsPerTable - sideSeats;
+  const topCount = Math.ceil(longEdgeTotal / 2);
+  const bottomCount = longEdgeTotal - topCount;
+  const leftSide = sideSeats >= 1 ? 1 : 0;
+  const rightSide = sideSeats >= 2 ? 1 : 0;
+
+  function along(centerAxis: number, length: number, count: number, idx: number): number {
+    if (count === 1) return centerAxis;
+    const fraction = idx / (count - 1);
+    return centerAxis - length / 2 + fraction * length;
+  }
+
+  for (let t = 0; t < tables; t++) {
+    const tCol = t % cols;
+    const tRow = Math.floor(t / cols);
+    const cellCenterX = padX + cellW * (tCol + 0.5);
+    const cellCenterY = padY + cellH * (tRow + 0.5);
+    let seatIdx = 0;
+    for (let i = 0; i < topCount; i++) {
+      out.push({
+        x: roundTo(along(cellCenterX, tableW, topCount, i), 2),
+        y: roundTo(cellCenterY - tableH / 2, 2),
+        label: `T${t + 1}·S${++seatIdx}`,
+      });
+    }
+    for (let i = 0; i < bottomCount; i++) {
+      out.push({
+        x: roundTo(along(cellCenterX, tableW, bottomCount, i), 2),
+        y: roundTo(cellCenterY + tableH / 2, 2),
+        label: `T${t + 1}·S${++seatIdx}`,
+      });
+    }
+    if (leftSide) {
+      out.push({
+        x: roundTo(cellCenterX - tableW / 2, 2),
+        y: roundTo(cellCenterY, 2),
+        label: `T${t + 1}·S${++seatIdx}`,
+      });
+    }
+    if (rightSide) {
+      out.push({
+        x: roundTo(cellCenterX + tableW / 2, 2),
+        y: roundTo(cellCenterY, 2),
+        label: `T${t + 1}·S${++seatIdx}`,
+      });
+    }
+  }
+
+  return out;
+}
+
 function roundTo(value: number, decimals: number): number {
   const factor = 10 ** decimals;
   return Math.round(value * factor) / factor;
