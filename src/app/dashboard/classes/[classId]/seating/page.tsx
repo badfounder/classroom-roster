@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth-options";
 import { getPool } from "@/lib/db";
+import { isValidUuid } from "@/lib/validate-id";
 import { SeatingChart } from "./seating-chart";
 import { NavBack, PageHeader } from "@/components/ui";
 
@@ -16,6 +17,9 @@ export default async function SeatingChartPage({
   }
 
   const { classId } = await params;
+  if (!isValidUuid(classId)) {
+    notFound();
+  }
   const pool = getPool();
 
   const { rows: classRows } = await pool.query<{

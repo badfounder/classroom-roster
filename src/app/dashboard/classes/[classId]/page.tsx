@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth-options";
 import { rotateClassCode } from "../actions";
 import { getPool } from "@/lib/db";
+import { isValidUuid } from "@/lib/validate-id";
 import { getRequestOrigin } from "@/lib/request-origin";
 import { ClassRosterPanel } from "./class-roster-panel";
 import { CopyLinks } from "./copy-links";
@@ -23,6 +24,9 @@ export default async function ClassDetailPage({
   }
 
   const { classId } = await params;
+  if (!isValidUuid(classId)) {
+    notFound();
+  }
   const pool = getPool();
   const { rows } = await pool.query<{
     id: string;

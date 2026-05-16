@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth-options";
 import { getPool } from "@/lib/db";
+import { isValidUuid } from "@/lib/validate-id";
 import { EditStudentForm } from "./edit-student-form";
 import { Card, NavBack, PageHeader } from "@/components/ui";
 
@@ -16,6 +17,9 @@ export default async function EditStudentPage({
   }
 
   const { classId, studentId } = await params;
+  if (!isValidUuid(classId) || !isValidUuid(studentId)) {
+    notFound();
+  }
   const pool = getPool();
 
   const { rows } = await pool.query<{
