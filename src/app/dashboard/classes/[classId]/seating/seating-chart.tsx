@@ -577,7 +577,7 @@ function Canvas({
   );
 }
 
-type LayoutMode = "rows" | "tables" | "manual";
+type ClassroomKind = "lecture" | "tables";
 
 function EditSeatsToolbar({
   slotsCount,
@@ -598,28 +598,33 @@ function EditSeatsToolbar({
   onDetect: () => void;
   onClearSlots: () => void;
 }) {
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>("rows");
+  const [kind, setKind] = useState<ClassroomKind>("lecture");
   const canAi = Boolean(classroomPhotoSrc && aiDetectionAvailable);
 
   return (
-    <div className="mb-4 space-y-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5 dark:border-zinc-800 dark:bg-zinc-900/60">
-          <ModeChip
-            active={layoutMode === "rows"}
-            onClick={() => setLayoutMode("rows")}
-            label="Rows × Cols"
-          />
-          <ModeChip
-            active={layoutMode === "tables"}
-            onClick={() => setLayoutMode("tables")}
-            label="Tables"
-          />
-          <ModeChip
-            active={layoutMode === "manual"}
-            onClick={() => setLayoutMode("manual")}
-            label="Manual"
-          />
+    <div className="mb-4 space-y-4 rounded-xl border border-zinc-200 bg-white px-4 py-4 dark:border-zinc-800 dark:bg-zinc-900">
+      {/* Primary toggle: what kind of classroom is this? */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            Classroom layout
+          </p>
+          <div className="mt-2 inline-flex rounded-xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-700 dark:bg-zinc-900/60">
+            <ClassroomKindButton
+              active={kind === "lecture"}
+              onClick={() => setKind("lecture")}
+              icon="🪑"
+              title="Lecture"
+              sub="Rows of seats facing the front"
+            />
+            <ClassroomKindButton
+              active={kind === "tables"}
+              onClick={() => setKind("tables")}
+              icon="🛋️"
+              title="Tables"
+              sub="Clusters around group tables"
+            />
+          </div>
         </div>
         {slotsCount > 0 ? (
           <Button type="button" variant="ghost" size="sm" onClick={onClearSlots}>
@@ -628,17 +633,16 @@ function EditSeatsToolbar({
         ) : null}
       </div>
 
-      {layoutMode === "rows" ? (
+      {/* Active form based on the toggle */}
+      {kind === "lecture" ? (
         <RowColForm onGenerate={onGenerateGrid} />
-      ) : null}
-      {layoutMode === "tables" ? (
+      ) : (
         <TablesForm onGenerate={onGenerateTables} />
-      ) : null}
-      {layoutMode === "manual" ? (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Click anywhere on the canvas to drop a seat. Click an existing seat to remove it.
-        </p>
-      ) : null}
+      )}
+
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        Or click anywhere on the canvas to drop a single seat manually.
+      </p>
 
       {canAi ? (
         <div className="border-t border-zinc-200 pt-3 dark:border-zinc-800">
@@ -662,26 +666,36 @@ function EditSeatsToolbar({
   );
 }
 
-function ModeChip({
+function ClassroomKindButton({
   active,
   onClick,
-  label,
+  icon,
+  title,
+  sub,
 }: {
   active: boolean;
   onClick: () => void;
-  label: string;
+  icon: string;
+  title: string;
+  sub: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-md px-3 py-1 text-xs font-medium transition ${
+      className={`flex items-center gap-3 rounded-lg px-4 py-2 text-left transition ${
         active
           ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100"
           : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
       }`}
     >
-      {label}
+      <span aria-hidden className="text-xl leading-none">
+        {icon}
+      </span>
+      <span className="flex flex-col leading-tight">
+        <span className="text-sm font-semibold">{title}</span>
+        <span className="text-xs text-zinc-500 dark:text-zinc-400">{sub}</span>
+      </span>
     </button>
   );
 }
