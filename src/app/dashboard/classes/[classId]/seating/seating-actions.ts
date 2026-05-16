@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth-options";
 import { getPool } from "@/lib/db";
-import { computeGridPositions } from "@/lib/seating-grid";
+import { computeGridPositions, computeRowColPositions } from "@/lib/seating-grid";
 import { detectSeatsFromPhoto } from "@/lib/detect-seats";
 
 async function assertOwnsClassAndStudent(
@@ -208,6 +208,63 @@ export async function clearSeatSlots(
   await pool.query(`DELETE FROM seat_slots WHERE class_id = $1`, [classId]);
   revalidatePath(`/dashboard/classes/${classId}/seating`);
   return { ok: true };
+}
+
+/**
+ * Generate a rows × cols grid of seat slots across the canvas. Replaces any
+ * existing slots. Returns the inserted rows so the client can update local
+ * state without a reload.
+ */
+export async function generateSeatGrid(
+  classId: string,
+  rows: number,
+  cols: number
+): Promise<
+  | { ok: true; slots: Array<{ id: string; x: number; y: number; label: string | null }> }
+  | { ok: false; error: string }
+> {
+  const session = await getServerSession(authOptions);
+  const teacherId = session?.user?.id;
+  if (!teacherId) return { ok: false, error: "Not signed in." };
+  if (!(await assertOwnsClass(teacherId, classId))) {
+    return { ok: false, error: "Class not found." };
+  }
+  const r = Math.max(1, Math.min(20, Math.floor(rows)));
+  const c = Math.max(1, Math.min(20, Math.floor(cols)));
+  if (r * c > 200) {
+    return { ok: false, error: "That's more than 200 seats — pick smaller dimensions." };
+  }
+
+  const grid = computeRowColPositions(r, c);
+  const pool = getPool();
+  const client = await pool.connect();
+  const inserted: Array<{ id: string; x: number; y: number; label: string | null }> = [];
+  try {
+    await client.query("BEGIN");
+    await client.query(`DELETE FROM seat_slots WHERE class_id = $1`, [classId]);
+    for (const seat of grid) {
+      const { rows: ins } = await client.query<{ id: string }>(
+        `INSERT INTO seat_slots (class_id, x, y, label)
+         VALUES ($1, $2, $3, $4) RETURNING id`,
+        [classId, clampPercent(seat.x), clampPercent(seat.y), seat.label]
+      );
+      inserted.push({
+        id: ins[0]!.id,
+        x: clampPercent(seat.x),
+        y: clampPercent(seat.y),
+        label: seat.label,
+      });
+    }
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+
+  revalidatePath(`/dashboard/classes/${classId}/seating`);
+  return { ok: true, slots: inserted };
 }
 
 /**

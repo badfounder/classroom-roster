@@ -19,6 +19,7 @@ import {
   clearSeatSlots,
   deleteSeatSlot,
   detectSeatsForClass,
+  generateSeatGrid,
   placeStudent,
   removeFromChart,
 } from "./seating-actions";
@@ -199,6 +200,29 @@ export function SeatingChart({
     });
   }
 
+  function runGenerateGrid(rows: number, cols: number) {
+    if (
+      slots.length > 0 &&
+      !window.confirm(
+        `Replace the ${slots.length} existing seat slot(s) with a ${rows} × ${cols} grid?`
+      )
+    ) {
+      return;
+    }
+    setErrorMsg(null);
+    setInfoMsg(null);
+    startTransition(async () => {
+      const result = await generateSeatGrid(classId, rows, cols);
+      if (!result.ok) {
+        setErrorMsg(result.error);
+        return;
+      }
+      setSlots(result.slots);
+      setMode("edit-seats");
+      setInfoMsg(`Laid out ${result.slots.length} seats in a ${rows} × ${cols} grid.`);
+    });
+  }
+
   function runDetect() {
     if (detecting) return;
     if (
@@ -345,30 +369,23 @@ export function SeatingChart({
           </div>
         </div>
       ) : (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="mb-4 space-y-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Click anywhere on the canvas to drop a seat. Click a seat to remove it.
-            {classroomPhotoSrc && aiDetectionAvailable
-              ? " Or let Claude propose seats from your photo."
-              : ""}
+            Click anywhere on the canvas to drop a seat, or generate a grid below.
           </p>
-          <div className="flex flex-wrap items-center gap-2">
-            {classroomPhotoSrc ? (
-              aiDetectionAvailable ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={runDetect}
-                  disabled={detecting}
-                  title="Sends the classroom photo (no student data) to Anthropic's API"
-                >
-                  {detecting ? "Detecting…" : "✨ Detect from photo"}
-                </Button>
-              ) : (
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Add ANTHROPIC_API_KEY to enable AI detection
-                </span>
-              )
+          <div className="flex flex-wrap items-end gap-3">
+            <RowColForm onGenerate={runGenerateGrid} />
+            {classroomPhotoSrc && aiDetectionAvailable ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={runDetect}
+                disabled={detecting}
+                title="Sends the classroom photo (no student data) to Anthropic's API"
+              >
+                {detecting ? "Detecting…" : "✨ Detect from photo (AI)"}
+              </Button>
             ) : null}
             {slots.length > 0 ? (
               <Button type="button" variant="ghost" size="sm" onClick={runClearSlots}>
@@ -546,6 +563,55 @@ function Canvas({
         );
       })}
     </div>
+  );
+}
+
+function RowColForm({
+  onGenerate,
+}: {
+  onGenerate: (rows: number, cols: number) => void;
+}) {
+  const [rows, setRows] = useState(5);
+  const [cols, setCols] = useState(6);
+
+  const inputClass =
+    "w-16 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-center text-sm tabular text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-4 focus:ring-zinc-900/5 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100";
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onGenerate(rows, cols);
+      }}
+      className="flex flex-wrap items-end gap-2"
+    >
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+        Rows
+        <input
+          type="number"
+          min={1}
+          max={20}
+          value={rows}
+          onChange={(e) => setRows(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+          className={inputClass}
+        />
+      </label>
+      <span className="pb-2 text-zinc-400">×</span>
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+        Columns
+        <input
+          type="number"
+          min={1}
+          max={20}
+          value={cols}
+          onChange={(e) => setCols(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+          className={inputClass}
+        />
+      </label>
+      <Button type="submit" size="sm">
+        Generate {rows * cols} seats
+      </Button>
+    </form>
   );
 }
 
