@@ -79,8 +79,9 @@ export default async function SeatingChartPage({
     x: string;
     y: string;
     label: string | null;
+    group_id: string | null;
   }>(
-    `SELECT id, x::text, y::text, label FROM seat_slots
+    `SELECT id, x::text, y::text, label, group_id FROM seat_slots
      WHERE class_id = $1 ORDER BY created_at ASC`,
     [classId]
   );
@@ -89,6 +90,25 @@ export default async function SeatingChartPage({
     x: Number(r.x),
     y: Number(r.y),
     label: r.label,
+    groupId: r.group_id,
+  }));
+
+  const { rows: groupRows } = await pool.query<{
+    id: string;
+    group_index: number;
+    name: string | null;
+    description: string | null;
+  }>(
+    `SELECT id, group_index, name, description
+     FROM seat_groups WHERE class_id = $1
+     ORDER BY group_index ASC`,
+    [classId]
+  );
+  const initialGroups = groupRows.map((r) => ({
+    id: r.id,
+    index: r.group_index,
+    name: r.name,
+    description: r.description,
   }));
 
   const aiDetectionAvailable = Boolean(process.env.ANTHROPIC_API_KEY);
@@ -138,6 +158,7 @@ export default async function SeatingChartPage({
           students={students}
           initialPositions={initialPositions}
           initialSlots={initialSlots}
+          initialGroups={initialGroups}
           aiDetectionAvailable={aiDetectionAvailable}
         />
       )}

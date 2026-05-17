@@ -1,0 +1,285 @@
+/*
+ * Print view styles. Scoped to elements that exist only on the print route,
+ * so they don't bleed into the rest of the app.
+ *
+ * Strategy: render a print-friendly layout on screen too (light background,
+ * pleasant typography) so what you see is what you'll print. Then layer a
+ * `@media print` block on top to hide the action buttons and tighten
+ * margins for actual paper output.
+ */
+
+.print-root {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 3rem;
+  color: #18181b;
+  background: #fafaf9;
+  min-height: 100vh;
+}
+
+.print-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid #e4e4e7;
+  margin-bottom: 1.5rem;
+}
+
+.print-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #71717a;
+}
+
+.print-title {
+  font-size: 1.875rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin-top: 0.25rem;
+  color: #18181b;
+}
+
+.print-meta {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #52525b;
+}
+
+.print-section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #18181b;
+  margin-bottom: 0.75rem;
+}
+
+.print-chart-wrap {
+  margin-bottom: 2rem;
+}
+
+.print-chart {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  background: #f4f4f5;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.print-chart-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.print-chart-table {
+  position: absolute;
+  border: 1.5px solid #71717a;
+  background: rgba(244, 244, 245, 0.6);
+  border-radius: 6px;
+}
+
+.print-chart-table-label {
+  position: absolute;
+  left: 0.25rem;
+  top: 0.15rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #3f3f46;
+  max-width: calc(100% - 0.5rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.print-chart-seat {
+  position: absolute;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-left: -0.25rem;
+  margin-top: -0.25rem;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 1.5px solid #71717a;
+}
+
+.print-chart-card {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.5rem;
+  padding: 0 0.4rem;
+  border-radius: 9999px;
+  background: #18181b;
+  color: #fafafa;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: 2px solid #ffffff;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+}
+
+.print-roster-wrap {
+  margin-top: 2rem;
+}
+
+.print-table-section {
+  margin-bottom: 1.5rem;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.print-table-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #18181b;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid #e4e4e7;
+}
+
+.print-table-desc {
+  font-weight: 400;
+  color: #52525b;
+}
+
+.print-empty {
+  font-size: 0.875rem;
+  color: #71717a;
+  font-style: italic;
+}
+
+.print-roster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.75rem;
+}
+
+.print-student-card {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.print-student-photo-wrap {
+  flex: 0 0 auto;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: #e4e4e7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.print-student-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.print-student-initial {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #52525b;
+}
+
+.print-student-info {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.print-student-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #18181b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.print-student-legal {
+  font-size: 0.75rem;
+  color: #71717a;
+}
+
+.print-student-facts {
+  margin-top: 0.4rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.5rem;
+  row-gap: 0.1rem;
+  font-size: 0.75rem;
+}
+
+.print-student-facts dt {
+  color: #71717a;
+}
+
+.print-student-facts dd {
+  color: #27272a;
+}
+
+.print-student-funfact {
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  color: #3f3f46;
+  font-style: italic;
+}
+
+.print-footer {
+  margin-top: 2rem;
+}
+
+/* Hide everything tagged .no-print when actually printing. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-root {
+    padding: 0;
+    background: #ffffff;
+    max-width: none;
+  }
+  .print-chart {
+    /* Force the chart onto a single page when possible. */
+    page-break-inside: avoid;
+    break-inside: avoid;
+    margin-bottom: 0.75rem;
+  }
+  .print-section-title {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+  .print-student-card {
+    box-shadow: none;
+  }
+  @page {
+    margin: 0.5in;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .print-root {
+    background: #ffffff;
+    color: #18181b;
+  }
+}

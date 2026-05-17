@@ -59,9 +59,14 @@ export default async function ClassDetailPage({
           eyebrow="Class"
           title={cls.name}
           actions={
-            <Link href={`/dashboard/classes/${cls.id}/seating`}>
-              <Button>Open seating chart</Button>
-            </Link>
+            <>
+              <Link href={`/dashboard/classes/${cls.id}/print`}>
+                <Button variant="secondary">Print roster</Button>
+              </Link>
+              <Link href={`/dashboard/classes/${cls.id}/seating`}>
+                <Button>Open seating chart</Button>
+              </Link>
+            </>
           }
         />
       </div>

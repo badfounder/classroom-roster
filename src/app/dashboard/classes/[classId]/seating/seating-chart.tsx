@@ -23,6 +23,7 @@ import {
   generateSeatTables,
   placeStudent,
   removeFromChart,
+  updateSeatGroup,
 } from "./seating-actions";
 import { Alert, Button } from "@/components/ui";
 import { computeGridPositions } from "@/lib/seating-grid";
@@ -50,6 +51,14 @@ export type SeatSlot = {
   x: number;
   y: number;
   label: string | null;
+  groupId: string | null;
+};
+
+export type SeatGroup = {
+  id: string;
+  index: number;
+  name: string | null;
+  description: string | null;
 };
 
 type Props = {
@@ -58,6 +67,7 @@ type Props = {
   students: Student[];
   initialPositions: Record<string, Position>;
   initialSlots: SeatSlot[];
+  initialGroups: SeatGroup[];
   aiDetectionAvailable: boolean;
 };
 
@@ -80,10 +90,13 @@ export function SeatingChart({
   students,
   initialPositions,
   initialSlots,
+  initialGroups,
   aiDetectionAvailable,
 }: Props) {
   const [positions, setPositions] = useState<Record<string, Position>>(initialPositions);
   const [slots, setSlots] = useState<SeatSlot[]>(initialSlots);
+  const [groups, setGroups] = useState<SeatGroup[]>(initialGroups);
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [mode, setMode] = useState<"arrange" | "edit-seats">(
     initialSlots.length === 0 && classroomPhotoSrc ? "edit-seats" : "arrange"
   );
@@ -159,7 +172,7 @@ export function SeatingChart({
     const x = clamp(((e.clientX - rect.left) / rect.width) * 100, 0, 100);
     const y = clamp(((e.clientY - rect.top) / rect.height) * 100, 0, 100);
     const tempId = `tmp-${Date.now()}`;
-    const optimistic: SeatSlot = { id: tempId, x, y, label: null };
+    const optimistic: SeatSlot = { id: tempId, x, y, label: null, groupId: null };
     setSlots((prev) => [...prev, optimistic]);
     setErrorMsg(null);
     startTransition(async () => {
@@ -190,13 +203,40 @@ export function SeatingChart({
   function runClearSlots() {
     if (slots.length === 0) return;
     if (!window.confirm(`Remove all ${slots.length} seat slot(s)?`)) return;
-    const snapshot = slots;
+    const slotSnap = slots;
+    const groupSnap = groups;
     setSlots([]);
+    setGroups([]);
     startTransition(async () => {
       const result = await clearSeatSlots(classId);
       if (!result.ok) {
         setErrorMsg(result.error);
-        setSlots(snapshot);
+        setSlots(slotSnap);
+        setGroups(groupSnap);
+      }
+    });
+  }
+
+  function openTableEditor(groupId: string) {
+    setEditingGroupId(groupId);
+  }
+  function closeTableEditor() {
+    setEditingGroupId(null);
+  }
+  function saveTableEdit(groupId: string, name: string, description: string) {
+    setGroups((prev) =>
+      prev.map((g) =>
+        g.id === groupId
+          ? { ...g, name: name.trim() || null, description: description.trim() || null }
+          : g
+      )
+    );
+    setEditingGroupId(null);
+    setErrorMsg(null);
+    startTransition(async () => {
+      const result = await updateSeatGroup(classId, groupId, name, description);
+      if (!result.ok) {
+        setErrorMsg(result.error);
       }
     });
   }
@@ -219,9 +259,10 @@ export function SeatingChart({
         return;
       }
       setSlots(result.slots);
+      setGroups(result.groups);
       setMode("edit-seats");
       setInfoMsg(
-        `Laid out ${tables} table(s) of ${seatsPerTable} seats (${result.slots.length} total).`
+        `Laid out ${tables} table(s) of ${seatsPerTable} seats (${result.slots.length} total). Click a table to name it.`
       );
     });
   }
@@ -244,6 +285,7 @@ export function SeatingChart({
         return;
       }
       setSlots(result.slots);
+      setGroups([]);
       setMode("edit-seats");
       setInfoMsg(`Laid out ${result.slots.length} seats in a ${rows} × ${cols} grid.`);
     });
@@ -270,6 +312,7 @@ export function SeatingChart({
         return;
       }
       setSlots(result.slots);
+      setGroups([]);
       setMode("edit-seats");
       setInfoMsg(
         `Claude found ${result.slots.length} seat${result.slots.length === 1 ? "" : "s"}. Drag any to fine-tune.`
@@ -418,11 +461,21 @@ export function SeatingChart({
           onAutoArrange={runAutoArrange}
           showAutoArrangeHint={unplacedCount > 0 && placedCount === 0 && mode === "arrange"}
           slots={slots}
+          groups={groups}
           mode={mode}
           onCanvasClick={handleCanvasClick}
           onRemoveSlot={removeSlot}
+          onEditTable={openTableEditor}
         />
       </div>
+
+      {editingGroupId ? (
+        <TableEditorModal
+          group={groups.find((g) => g.id === editingGroupId) ?? null}
+          onClose={closeTableEditor}
+          onSave={saveTableEdit}
+        />
+      ) : null}
 
       {selected ? (
         <DetailPopover
@@ -497,9 +550,11 @@ function Canvas({
   onAutoArrange,
   showAutoArrangeHint,
   slots,
+  groups,
   mode,
   onCanvasClick,
   onRemoveSlot,
+  onEditTable,
 }: {
   canvasRef: React.RefObject<HTMLDivElement | null>;
   photoSrc: string | null;
@@ -509,9 +564,11 @@ function Canvas({
   onAutoArrange: () => void;
   showAutoArrangeHint: boolean;
   slots: SeatSlot[];
+  groups: SeatGroup[];
   mode: "arrange" | "edit-seats";
   onCanvasClick: (e: React.MouseEvent<HTMLDivElement>) => void;
   onRemoveSlot: (slotId: string) => void;
+  onEditTable: (groupId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: CANVAS_DROPPABLE_ID });
   return (
@@ -555,8 +612,13 @@ function Canvas({
       )}
       {/* Render table outlines under the seats so a cluster of 6 dots
           obviously reads as "6 chairs around table 3" instead of two rows. */}
-      {computeTableOutlines(slots).map((box) => (
-        <TableOutline key={box.id} {...box} />
+      {computeTableOutlines(slots, groups).map((box) => (
+        <TableOutline
+          key={box.id}
+          {...box}
+          interactive={mode === "edit-seats"}
+          onEdit={() => onEditTable(box.id)}
+        />
       ))}
       {slots.map((slot) => (
         <SeatSlotMarker
@@ -806,31 +868,41 @@ function RowColForm({
 }
 
 type TableOutlineData = {
-  id: string;
+  id: string; // group id (db id) when known, else the T-index as string
   x: number; // top-left, percent
   y: number;
   w: number;
   h: number;
   label: string;
+  hasGroupId: boolean;
 };
 
 /**
- * Group seat slots by their "T{n}·S{n}" label prefix and emit one rectangle
- * per group sized to sit just inside the ring of seats. Slots without that
- * label format (manual click-to-place, AI detection) are ignored.
+ * Group seat slots by their group_id (or T{n} label fallback) and emit one
+ * rectangle per group sized to sit just inside the ring of seats. Slots
+ * without a group or matching label (manual click-to-place, AI detection)
+ * are ignored.
  */
-function computeTableOutlines(slots: SeatSlot[]): TableOutlineData[] {
-  const groups = new Map<string, SeatSlot[]>();
+function computeTableOutlines(slots: SeatSlot[], groups: SeatGroup[]): TableOutlineData[] {
+  const groupsById = new Map(groups.map((g) => [g.id, g]));
+  const buckets = new Map<string, { hasGroupId: boolean; slots: SeatSlot[] }>();
   for (const s of slots) {
-    const m = s.label?.match(/^T(\d+)·/);
-    if (!m) continue;
-    const key = m[1]!;
-    const existing = groups.get(key);
-    if (existing) existing.push(s);
-    else groups.set(key, [s]);
+    let key: string | null = null;
+    let hasGroupId = false;
+    if (s.groupId) {
+      key = s.groupId;
+      hasGroupId = true;
+    } else {
+      const m = s.label?.match(/^T(\d+)·/);
+      if (m) key = `idx:${m[1]}`;
+    }
+    if (!key) continue;
+    const existing = buckets.get(key);
+    if (existing) existing.slots.push(s);
+    else buckets.set(key, { hasGroupId, slots: [s] });
   }
   const out: TableOutlineData[] = [];
-  for (const [id, members] of groups) {
+  for (const [id, { hasGroupId, slots: members }] of buckets) {
     if (members.length < 2) continue;
     const xs = members.map((m) => m.x);
     const ys = members.map((m) => m.y);
@@ -838,33 +910,131 @@ function computeTableOutlines(slots: SeatSlot[]): TableOutlineData[] {
     const maxX = Math.max(...xs);
     const minY = Math.min(...ys);
     const maxY = Math.max(...ys);
-    // Inset slightly so the rectangle sits inside the ring of seats — gives
-    // the "seats around a table" silhouette rather than "rectangle enclosing
-    // a row of dots."
     const insetX = 1.2;
     const insetY = 1.2;
+    const group = hasGroupId ? groupsById.get(id) : null;
+    const fallbackLabel = hasGroupId
+      ? group?.index != null
+        ? `T${group.index}`
+        : "Table"
+      : `T${id.replace(/^idx:/, "")}`;
     out.push({
       id,
-      label: `T${id}`,
+      label: group?.name?.trim() || fallbackLabel,
       x: minX + insetX,
       y: minY + insetY,
       w: Math.max(0, maxX - minX - insetX * 2),
       h: Math.max(0, maxY - minY - insetY * 2),
+      hasGroupId,
     });
   }
   return out;
 }
 
-function TableOutline({ x, y, w, h, label }: TableOutlineData) {
+function TableOutline({
+  x,
+  y,
+  w,
+  h,
+  label,
+  hasGroupId,
+  interactive,
+  onEdit,
+}: TableOutlineData & { interactive: boolean; onEdit: () => void }) {
+  const editable = interactive && hasGroupId;
   return (
     <div
-      aria-hidden
-      className="pointer-events-none absolute rounded-md border border-zinc-300 bg-zinc-200/40 dark:border-zinc-600 dark:bg-zinc-800/40"
+      onClick={
+        editable
+          ? (e) => {
+              e.stopPropagation();
+              onEdit();
+            }
+          : undefined
+      }
+      aria-hidden={!editable}
+      title={editable ? "Click to rename or describe this table" : undefined}
+      className={`absolute rounded-md border bg-zinc-200/40 dark:bg-zinc-800/40 ${
+        editable
+          ? "cursor-pointer border-zinc-400 hover:border-zinc-600 hover:bg-zinc-200/70 dark:border-zinc-500 dark:hover:border-zinc-300"
+          : "pointer-events-none border-zinc-300 dark:border-zinc-600"
+      }`}
       style={{ left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%` }}
     >
-      <span className="absolute left-1 top-1 select-none text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+      <span className="absolute left-1.5 top-1 max-w-[calc(100%-12px)] truncate text-[10px] font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-300">
         {label}
       </span>
+    </div>
+  );
+}
+
+function TableEditorModal({
+  group,
+  onClose,
+  onSave,
+}: {
+  group: SeatGroup | null;
+  onClose: () => void;
+  onSave: (groupId: string, name: string, description: string) => void;
+}) {
+  if (!group) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/50 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={(e) => {
+          e.preventDefault();
+          const form = e.currentTarget;
+          const fd = new FormData(form);
+          onSave(group.id, String(fd.get("name") ?? ""), String(fd.get("description") ?? ""));
+        }}
+        className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
+      >
+        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+          Table {group.index}
+        </p>
+        <h2 className="mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+          Name this table
+        </h2>
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          Use a group or project name to make it easier to find on the chart and the printed
+          handout. Leave blank to fall back to &ldquo;T{group.index}&rdquo;.
+        </p>
+        <div className="mt-5 flex flex-col gap-4">
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+            Name
+            <input
+              name="name"
+              type="text"
+              defaultValue={group.name ?? ""}
+              placeholder={`e.g. Team Anthropic, Project Climate`}
+              autoFocus
+              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-4 focus:ring-zinc-900/5 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+            />
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+            Description / project topic
+            <textarea
+              name="description"
+              rows={3}
+              defaultValue={group.description ?? ""}
+              placeholder="What is this group working on?"
+              className="resize-y rounded-lg border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-4 focus:ring-zinc-900/5 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+            />
+          </label>
+        </div>
+        <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit">Save</Button>
+        </div>
+      </form>
     </div>
   );
 }

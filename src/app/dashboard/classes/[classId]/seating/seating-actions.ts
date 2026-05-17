@@ -210,7 +210,40 @@ export async function clearSeatSlots(
 
   const pool = getPool();
   await pool.query(`DELETE FROM seat_slots WHERE class_id = $1`, [classId]);
+  await pool.query(`DELETE FROM seat_groups WHERE class_id = $1`, [classId]);
   revalidatePath(`/dashboard/classes/${classId}/seating`);
+  return { ok: true };
+}
+
+export async function updateSeatGroup(
+  classId: string,
+  groupId: string,
+  name: string,
+  description: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const session = await getServerSession(authOptions);
+  const teacherId = session?.user?.id;
+  if (!teacherId) return { ok: false, error: "Not signed in." };
+  if (!(await assertOwnsClass(teacherId, classId))) {
+    return { ok: false, error: "Class not found." };
+  }
+  const trimmedName = name.trim();
+  const trimmedDesc = description.trim();
+
+  const pool = getPool();
+  await pool.query(
+    `UPDATE seat_groups
+       SET name = $1, description = $2
+     WHERE id = $3 AND class_id = $4`,
+    [
+      trimmedName.length > 0 ? trimmedName : null,
+      trimmedDesc.length > 0 ? trimmedDesc : null,
+      groupId,
+      classId,
+    ]
+  );
+  revalidatePath(`/dashboard/classes/${classId}/seating`);
+  revalidatePath(`/dashboard/classes/${classId}/print`);
   return { ok: true };
 }
 
@@ -224,7 +257,10 @@ export async function generateSeatGrid(
   rows: number,
   cols: number
 ): Promise<
-  | { ok: true; slots: Array<{ id: string; x: number; y: number; label: string | null }> }
+  | {
+      ok: true;
+      slots: Array<{ id: string; x: number; y: number; label: string | null; groupId: string | null }>;
+    }
   | { ok: false; error: string }
 > {
   const session = await getServerSession(authOptions);
@@ -242,10 +278,17 @@ export async function generateSeatGrid(
   const grid = computeRowColPositions(r, c);
   const pool = getPool();
   const client = await pool.connect();
-  const inserted: Array<{ id: string; x: number; y: number; label: string | null }> = [];
+  const inserted: Array<{
+    id: string;
+    x: number;
+    y: number;
+    label: string | null;
+    groupId: string | null;
+  }> = [];
   try {
     await client.query("BEGIN");
     await client.query(`DELETE FROM seat_slots WHERE class_id = $1`, [classId]);
+    await client.query(`DELETE FROM seat_groups WHERE class_id = $1`, [classId]);
     for (const seat of grid) {
       const { rows: ins } = await client.query<{ id: string }>(
         `INSERT INTO seat_slots (class_id, x, y, label)
@@ -257,6 +300,7 @@ export async function generateSeatGrid(
         x: clampPercent(seat.x),
         y: clampPercent(seat.y),
         label: seat.label,
+        groupId: null,
       });
     }
     await client.query("COMMIT");
@@ -281,7 +325,11 @@ export async function generateSeatTables(
   tables: number,
   seatsPerTable: number
 ): Promise<
-  | { ok: true; slots: Array<{ id: string; x: number; y: number; label: string | null }> }
+  | {
+      ok: true;
+      slots: Array<{ id: string; x: number; y: number; label: string | null; groupId: string | null }>;
+      groups: Array<{ id: string; index: number; name: string | null; description: string | null }>;
+    }
   | { ok: false; error: string }
 > {
   const session = await getServerSession(authOptions);
@@ -299,19 +347,49 @@ export async function generateSeatTables(
   const layout = computeTablePositions(t, s);
   const pool = getPool();
   const client = await pool.connect();
-  const inserted: Array<{ id: string; x: number; y: number; label: string | null }> = [];
+  const inserted: Array<{
+    id: string;
+    x: number;
+    y: number;
+    label: string | null;
+    groupId: string | null;
+  }> = [];
+  const groups: Array<{
+    id: string;
+    index: number;
+    name: string | null;
+    description: string | null;
+  }> = [];
   try {
     await client.query("BEGIN");
     await client.query(`DELETE FROM seat_slots WHERE class_id = $1`, [classId]);
+    await client.query(`DELETE FROM seat_groups WHERE class_id = $1`, [classId]);
+
+    // Insert one seat_group per table so teachers can rename / annotate them
+    // later. The group_index matches the T{n} label on the slots.
+    const groupIds = new Map<number, string>();
+    for (let i = 1; i <= t; i++) {
+      const { rows: gIns } = await client.query<{ id: string }>(
+        `INSERT INTO seat_groups (class_id, group_index)
+         VALUES ($1, $2) RETURNING id`,
+        [classId, i]
+      );
+      const id = gIns[0]!.id;
+      groupIds.set(i, id);
+      groups.push({ id, index: i, name: null, description: null });
+    }
+
     for (const seat of layout) {
       const x = clampPercent(seat.x);
       const y = clampPercent(seat.y);
+      const tableMatch = seat.label.match(/^T(\d+)·/);
+      const groupId = tableMatch ? groupIds.get(Number(tableMatch[1])) ?? null : null;
       const { rows: ins } = await client.query<{ id: string }>(
-        `INSERT INTO seat_slots (class_id, x, y, label)
-         VALUES ($1, $2, $3, $4) RETURNING id`,
-        [classId, x, y, seat.label]
+        `INSERT INTO seat_slots (class_id, x, y, label, group_id)
+         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        [classId, x, y, seat.label, groupId]
       );
-      inserted.push({ id: ins[0]!.id, x, y, label: seat.label });
+      inserted.push({ id: ins[0]!.id, x, y, label: seat.label, groupId });
     }
     await client.query("COMMIT");
   } catch (e) {
@@ -322,7 +400,7 @@ export async function generateSeatTables(
   }
 
   revalidatePath(`/dashboard/classes/${classId}/seating`);
-  return { ok: true, slots: inserted };
+  return { ok: true, slots: inserted, groups };
 }
 
 /**
@@ -333,7 +411,10 @@ export async function generateSeatTables(
 export async function detectSeatsForClass(
   classId: string
 ): Promise<
-  | { ok: true; slots: Array<{ id: string; x: number; y: number; label: string | null }> }
+  | {
+      ok: true;
+      slots: Array<{ id: string; x: number; y: number; label: string | null; groupId: string | null }>;
+    }
   | { ok: false; error: string }
 > {
   const session = await getServerSession(authOptions);
@@ -362,10 +443,17 @@ export async function detectSeatsForClass(
   }
 
   const client = await pool.connect();
-  const inserted: Array<{ id: string; x: number; y: number; label: string | null }> = [];
+  const inserted: Array<{
+    id: string;
+    x: number;
+    y: number;
+    label: string | null;
+    groupId: string | null;
+  }> = [];
   try {
     await client.query("BEGIN");
     await client.query(`DELETE FROM seat_slots WHERE class_id = $1`, [classId]);
+    await client.query(`DELETE FROM seat_groups WHERE class_id = $1`, [classId]);
     for (const seat of detection.seats) {
       const x = clampPercent(seat.x);
       const y = clampPercent(seat.y);
@@ -374,7 +462,7 @@ export async function detectSeatsForClass(
          VALUES ($1, $2, $3, $4) RETURNING id`,
         [classId, x, y, seat.label ?? null]
       );
-      inserted.push({ id: ins[0]!.id, x, y, label: seat.label ?? null });
+      inserted.push({ id: ins[0]!.id, x, y, label: seat.label ?? null, groupId: null });
     }
     await client.query("COMMIT");
   } catch (e) {
