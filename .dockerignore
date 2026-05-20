@@ -1,0 +1,49 @@
+# Source control / IDE
+.git
+.gitignore
+.gitattributes
+.idea
+.vscode
+.DS_Store
+
+# Build / dev artifacts (we rebuild inside the image)
+node_modules
+.next
+.next-env.d.ts
+next-env.d.ts
+out
+build
+coverage
+.turbo
+
+# Local environment / secrets (Coolify injects env vars at runtime)
+.env
+.env.*
+!.env.example
+
+# Local uploaded files (the production volume is separate)
+uploads
+public/uploads
+
+# Local Postgres data (compose volume)
+pg_data
+
+# Editor / OS junk
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Claude code worktrees + agent state
+.claude
+
+# Misc development-only files we don't ship
+README.md
+backlog.md
+project.md
+runbooks
+compose.yaml
+scripts/seed-demo.mjs
+scripts/check-orphans.mjs
+scripts/backup.sh
+scripts/check-backup-fresh.sh

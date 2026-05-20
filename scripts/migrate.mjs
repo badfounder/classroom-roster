@@ -1,9 +1,10 @@
 /**
  * Apply numbered SQL migrations from db/migrations in lexicographic order.
  * Usage: npm run db:migrate
- * Loads .env then .env.local from the project root; DATABASE_URL required.
+ * Loads .env then .env.local from the project root if dotenv is available;
+ * otherwise relies on env vars already being set (production containers).
+ * DATABASE_URL required either way.
  */
-import dotenv from "dotenv";
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -14,8 +15,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
 const migrationsDir = path.join(root, "db", "migrations");
 
-dotenv.config({ path: path.join(root, ".env") });
-dotenv.config({ path: path.join(root, ".env.local") });
+// dotenv is a dev dependency. In production containers (Coolify, Docker)
+// env vars come from the runtime, so a missing dotenv import is fine.
+try {
+  const { default: dotenv } = await import("dotenv");
+  dotenv.config({ path: path.join(root, ".env") });
+  dotenv.config({ path: path.join(root, ".env.local") });
+} catch {
+  // intentional fallthrough
+}
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
