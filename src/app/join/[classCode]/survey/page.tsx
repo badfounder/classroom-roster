@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { normalizeClassCode } from "@/lib/class-code";
 import { getPool } from "@/lib/db";
 import { SurveyForm } from "./survey-form";
@@ -12,7 +12,7 @@ export default async function SurveyPage({
   const { classCode: raw } = await params;
   const code = normalizeClassCode(decodeURIComponent(raw));
   if (code.length !== 6) {
-    notFound();
+    redirect(`/join?invalid=${encodeURIComponent(code || raw)}`);
   }
 
   const pool = getPool();
@@ -21,7 +21,7 @@ export default async function SurveyPage({
     [code]
   );
   if (!rowCount) {
-    notFound();
+    redirect(`/join?invalid=${encodeURIComponent(code)}`);
   }
 
   return (

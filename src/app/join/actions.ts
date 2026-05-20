@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { normalizeClassCode } from "@/lib/class-code";
 import { getPool } from "@/lib/db";
 
-export type JoinFormState = { error: string } | undefined;
+export type JoinFormState = { error: string; code: string } | undefined;
 
 export async function submitClassCode(
   _prev: JoinFormState,
@@ -12,9 +12,15 @@ export async function submitClassCode(
 ): Promise<JoinFormState> {
   const raw = String(formData.get("code") ?? "");
   const code = normalizeClassCode(raw);
+  // Echo the typed value back so the form can re-populate the input on error
+  // (otherwise people have to retype the whole code from scratch).
+  if (raw.trim().length === 0) {
+    return { error: "Enter the class code your teacher gave you.", code: raw };
+  }
   if (code.length !== 6) {
     return {
-      error: "Enter the 6-character class code exactly as your teacher shared.",
+      error: "Class codes are 6 characters. Check for missing or extra characters.",
+      code: raw,
     };
   }
 
@@ -24,7 +30,10 @@ export async function submitClassCode(
     [code]
   );
   if (!rowCount) {
-    return { error: "That class code is not valid." };
+    return {
+      error: `“${code}” isn't a valid class code. Double-check the code your teacher shared — letters and numbers only, no spaces.`,
+      code: raw,
+    };
   }
 
   redirect(`/join/${code}`);

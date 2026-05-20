@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { normalizeClassCode } from "@/lib/class-code";
 import { getPool } from "@/lib/db";
 import { AuthShell, Button, Card } from "@/components/ui";
@@ -11,8 +11,11 @@ export default async function JoinClassLandingPage({
 }) {
   const { classCode: raw } = await params;
   const code = normalizeClassCode(decodeURIComponent(raw));
+  // Send malformed or unknown codes back to /join with the attempted code
+  // attached, so the form can pre-fill it and surface a friendly error.
+  // Beats a generic 404 with no recovery path.
   if (code.length !== 6) {
-    notFound();
+    redirect(`/join?invalid=${encodeURIComponent(code || raw)}`);
   }
 
   const pool = getPool();
@@ -22,7 +25,7 @@ export default async function JoinClassLandingPage({
   );
   const row = rows[0];
   if (!row) {
-    notFound();
+    redirect(`/join?invalid=${encodeURIComponent(code)}`);
   }
 
   return (
