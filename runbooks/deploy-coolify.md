@@ -1,8 +1,76 @@
 # Deploying to Hetzner + Coolify
 
-Step-by-step for a fresh deploy. Assumes you already have a Hetzner VPS with Coolify installed, a DNS record pointing at it, and your `classroom-roster` repo on GitHub.
+End-to-end for a fresh deploy. The repo's `Dockerfile` does the heavy lifting; Coolify just orchestrates Postgres, the persistent uploads volume, env vars, and SSL.
 
-The repo's `Dockerfile` does the heavy lifting; Coolify just orchestrates Postgres, the persistent uploads volume, env vars, and SSL.
+---
+
+## 0. Before you touch Coolify
+
+You need five things lined up before anything in the Coolify UI works.
+
+### 0a. VPS sized for the build
+
+`next build` on Turbopack wants memory. **2 GB minimum**, 4 GB comfortable. Hetzner's `cx22` (4 GB / 2 vCPU) is the smallest size I'd trust. If your VPS has 1 GB, the build will OOM-kill silently and Coolify will show "Build failed" with no useful log line.
+
+```bash
+# on the VPS
+free -h
+```
+
+If RAM is tight, add a 2 GB swap file as a quick fix:
+
+```bash
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile \
+  && sudo mkswap /swapfile && sudo swapon /swapfile \
+  && echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+### 0b. DNS pointing at the VPS
+
+Pick a subdomain (e.g. `roster.example.com`) and add an **A record** in your DNS provider pointing at the VPS's public IPv4. Add a matching **AAAA record** for IPv6 if your VPS has one. Verify resolution **before** moving on — Coolify's Let's Encrypt provisioning will fail if DNS hasn't propagated.
+
+```bash
+dig +short roster.example.com  # should return the VPS IP
+```
+
+(15 minutes is a typical propagation window; can be near-instant if your registrar is fast.)
+
+### 0c. Coolify connected to GitHub
+
+The `classroom-roster` repo on GitHub is **private**. Coolify can't pull from it without explicit access. The cleanest path is Coolify's GitHub App:
+
+1. In Coolify: **Sources → New → GitHub App**.
+2. Click **Install GitHub App** — that opens GitHub.
+3. Grant it access to **just the `classroom-roster` repo** (or all repos if you'd rather).
+4. Back in Coolify, the source should now show your username and a green checkmark.
+
+Alternatives if you'd rather not install an App:
+
+- Make the repo public (`gh repo edit badfounder/classroom-roster --visibility public`).
+- Or add a per-deploy SSH key as a GitHub **Deploy Key**, then paste the private half into Coolify under **Sources → Private Key**.
+
+### 0d. `NEXTAUTH_SECRET` decided and saved
+
+Generate it once now and put it in a password manager — you'll paste it into Coolify in step 3 and you do not want to rotate it casually (every active session invalidates).
+
+```bash
+openssl rand -base64 32
+```
+
+### 0e. A local Docker smoke test (optional but cheap)
+
+If you want to catch build errors before you watch them happen on the VPS:
+
+```bash
+docker build -t classroom-roster:local .
+docker run --rm -p 3100:3000 \
+  -e DATABASE_URL=postgresql://user:password@host.docker.internal:5433/classroom_roster \
+  -e NEXTAUTH_URL=http://localhost:3100 \
+  -e NEXTAUTH_SECRET=throwaway \
+  classroom-roster:local
+```
+
+Then open <http://localhost:3100>. If the landing page renders, the image is good.
 
 ---
 
