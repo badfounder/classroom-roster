@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth-options";
 import { getPool } from "@/lib/db";
 import { SignOutButton } from "./sign-out-button";
 import { Button, PageHeader } from "@/components/ui";
+import { EmptyClassesIllustration } from "@/components/illustrations";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -46,8 +47,9 @@ export default async function DashboardPage() {
       />
 
       {classes.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-zinc-300 bg-white px-8 py-16 text-center dark:border-zinc-700 dark:bg-zinc-900/40">
-          <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+        <div className="rounded-2xl border border-dashed border-brand-200 bg-gradient-to-b from-brand-50/50 to-transparent px-8 py-14 text-center dark:border-brand-200/20 dark:from-brand-100/10">
+          <EmptyClassesIllustration className="mx-auto h-32 w-auto" />
+          <p className="mt-6 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
             Create your first class
           </p>
           <p className="mx-auto mt-2 max-w-md text-sm text-zinc-600 dark:text-zinc-400">

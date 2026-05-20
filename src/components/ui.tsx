@@ -322,8 +322,19 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
           <Link
             href="/"
-            className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50"
+            className="flex items-center gap-2 text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50"
           >
+            <span
+              aria-hidden
+              className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-brand-600 text-white"
+            >
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
+                <circle cx="4" cy="4" r="2" fill="currentColor" />
+                <circle cx="12" cy="4" r="2" fill="currentColor" />
+                <circle cx="4" cy="12" r="2" fill="currentColor" />
+                <circle cx="12" cy="12" r="2" fill="currentColor" />
+              </svg>
+            </span>
             Classroom Roster
           </Link>
           <Link

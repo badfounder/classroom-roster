@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fafaf9;
+  --background: #fbfbfa;
   --foreground: #18181b;
   --surface: #ffffff;
   --surface-muted: #f4f4f5;
@@ -10,6 +10,24 @@
   --accent: #0f172a;
   --accent-fg: #f8fafc;
   --ring: rgba(15, 23, 42, 0.12);
+
+  /* Brand accent — indigo. Used for the hero highlight, primary
+     illustration fills, the seating-chart canvas border, and select
+     interactive accents. Kept restrained so primary CTAs can stay
+     near-black; the brand color earns its keep on a handful of spots
+     instead of being everywhere. */
+  --brand-50: #eef2ff;
+  --brand-100: #e0e7ff;
+  --brand-200: #c7d2fe;
+  --brand-300: #a5b4fc;
+  --brand-400: #818cf8;
+  --brand-500: #6366f1;
+  --brand-600: #4f46e5;
+  --brand-700: #4338ca;
+
+  /* Warm secondary accent — amber. Used sparingly for highlights
+     (e.g. "highlight" student count on the landing page). */
+  --accent-warm: #f59e0b;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,6 +41,14 @@
     --accent: #fafafa;
     --accent-fg: #18181b;
     --ring: rgba(250, 250, 250, 0.15);
+    --brand-50: #1e1b4b;
+    --brand-100: #312e81;
+    --brand-200: #3730a3;
+    --brand-300: #4338ca;
+    --brand-400: #6366f1;
+    --brand-500: #818cf8;
+    --brand-600: #a5b4fc;
+    --brand-700: #c7d2fe;
   }
 }
 
@@ -35,6 +61,15 @@
   --color-border-strong: var(--border-strong);
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-accent-warm: var(--accent-warm);
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }

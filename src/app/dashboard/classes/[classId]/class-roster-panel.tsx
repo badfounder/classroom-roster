@@ -6,6 +6,7 @@ import { CsvRosterUpload } from "./csv-roster-upload";
 import { DeleteStudentButton } from "./delete-student-button";
 import { ManualStudentForm } from "./manual-student-form";
 import { Badge, SectionHeader } from "@/components/ui";
+import { EmptyRosterIllustration } from "@/components/illustrations";
 
 export async function ClassRosterPanel({ classId }: { classId: string }) {
   const session = await getServerSession(authOptions);
@@ -130,9 +131,12 @@ export async function ClassRosterPanel({ classId }: { classId: string }) {
         />
 
         {students.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-5 py-10 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/40">
-            No students yet. Upload a CSV or add one manually above.
-          </p>
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-brand-200 bg-gradient-to-b from-brand-50/40 to-transparent px-5 py-8 text-center dark:border-brand-200/20 dark:from-brand-100/10">
+            <EmptyRosterIllustration className="h-24 w-auto" />
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              No students yet. Upload a CSV or add one manually above.
+            </p>
+          </div>
         ) : (
           <ul className="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
             {students.map((s) => (
