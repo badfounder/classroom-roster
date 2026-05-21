@@ -22,12 +22,6 @@ export default function Home() {
             Classroom Roster
           </span>
           <nav className="flex items-center gap-2">
-            <Link
-              href="/join"
-              className="rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              I&rsquo;m a student
-            </Link>
             <Link href="/login">
               <Button variant="secondary" size="sm">Sign in</Button>
             </Link>
@@ -45,28 +39,25 @@ export default function Home() {
           />
           <section className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-16 sm:py-24 lg:grid-cols-5">
             <div className="lg:col-span-3">
-              <p className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brand-700 dark:border-brand-200/30 dark:bg-brand-100/10 dark:text-brand-300">
-                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-brand-600 dark:bg-brand-400" />
-                For teachers · Self-hosted
-              </p>
-              <h1 className="mt-5 text-4xl font-semibold tracking-tight text-zinc-900 sm:text-5xl dark:text-zinc-50">
-                Learn your students&rsquo;{" "}
+              <h1 className="text-4xl font-semibold tracking-tight text-zinc-900 sm:text-5xl dark:text-zinc-50">
+                Better learning starts with{" "}
                 <span className="bg-gradient-to-r from-brand-600 to-brand-400 bg-clip-text text-transparent dark:from-brand-400 dark:to-brand-200">
-                  names, faces, and seats
-                </span>{" "}
-                — without giving their data away.
+                  knowing each student
+                </span>
+                .
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-relaxed text-zinc-600 dark:text-zinc-400">
-                A simple roster and visual seating chart that runs on your own server. Students
-                fill a quick profile via a class code; you drag their cards onto a photo of your
-                real classroom. No third-party analytics, no telemetry, no data leaving your VPS.
+                Students fill a quick profile — name, photo, a few questions you actually
+                wonder about. You see a seating chart of your real classroom, names attached
+                to faces. The first week of every term feels less like cold-calling and more
+                like meeting people.
               </p>
               <div className="mt-10 flex flex-wrap items-center gap-3">
                 <Link href="/signup">
-                  <Button size="lg">Create teacher account</Button>
+                  <Button size="lg">I&rsquo;m a teacher</Button>
                 </Link>
                 <Link href="/join">
-                  <Button variant="secondary" size="lg">Student? Enter a class code</Button>
+                  <Button variant="secondary" size="lg">I&rsquo;m a student</Button>
                 </Link>
               </div>
             </div>
@@ -80,27 +71,30 @@ export default function Home() {
           <div className="mx-auto grid max-w-5xl gap-8 px-6 py-16 sm:grid-cols-3 sm:py-20">
             <Feature
               icon="🗣"
-              title="Names & pronunciations"
-              body="Students submit preferred name, phonetic spelling, pronouns, a photo, and an optional voice clip saying their own name."
+              title="Names you can pronounce"
+              body="Each student records how to say their name, picks a preferred form, and adds pronouns — so you don't spend the first month getting it wrong."
             />
             <Feature
               icon="🪑"
-              title="Seating chart on your photo"
-              body="Upload a photo of your real classroom. Use Lecture or Tables mode to drop seats, then drag students onto where they actually sit."
+              title="Your real classroom"
+              body="Upload a photo of the room. Drop seats in lecture rows or group tables, name the tables for project work, drag students onto where they sit."
             />
             <Feature
-              icon="🔒"
-              title="Your server, your data"
-              body="Photos and rosters live on your VPS. Deleting a class wipes its files. Built-in backup script ships to your own restic repo."
+              icon="🤝"
+              title="Real connections, sooner"
+              body="A handful of light questions — hometown, major, weekend mode — give you context to remember each student as a person, not just a name on a roster."
             />
           </div>
         </section>
       </main>
 
       <footer className="border-t border-zinc-200 py-6 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-        Self-hosted &middot; No telemetry &middot;{" "}
-        <Link href="/dashboard" className="underline hover:text-zinc-900 dark:hover:text-zinc-100">
-          Dashboard
+        <Link href="/login" className="underline hover:text-zinc-900 dark:hover:text-zinc-100">
+          Sign in
+        </Link>
+        {" · "}
+        <Link href="/join" className="underline hover:text-zinc-900 dark:hover:text-zinc-100">
+          Join a class
         </Link>
       </footer>
     </div>
