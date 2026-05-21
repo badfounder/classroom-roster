@@ -67,25 +67,6 @@ export default function Home() {
           </section>
         </div>
 
-        <section className="border-t border-zinc-200 bg-surface-muted dark:border-zinc-800 dark:bg-zinc-900/40">
-          <div className="mx-auto grid max-w-5xl gap-8 px-6 py-16 sm:grid-cols-3 sm:py-20">
-            <Feature
-              icon="🗣"
-              title="Names you can pronounce"
-              body="Each student records how to say their name, picks a preferred form, and adds pronouns — so you don't spend the first month getting it wrong."
-            />
-            <Feature
-              icon="🪑"
-              title="Your real classroom"
-              body="Upload a photo of the room. Drop seats in lecture rows or group tables, name the tables for project work, drag students onto where they sit."
-            />
-            <Feature
-              icon="🤝"
-              title="Real connections, sooner"
-              body="A handful of light questions — hometown, major, weekend mode — give you context to remember each student as a person, not just a name on a roster."
-            />
-          </div>
-        </section>
       </main>
 
       <footer className="border-t border-zinc-200 py-6 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
@@ -101,19 +82,3 @@ export default function Home() {
   );
 }
 
-function Feature({ icon, title, body }: { icon: string; title: string; body: string }) {
-  return (
-    <div className="flex flex-col gap-3">
-      <span
-        aria-hidden
-        className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-brand-100 text-xl dark:bg-brand-100/15"
-      >
-        {icon}
-      </span>
-      <div>
-        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">{title}</h3>
-        <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{body}</p>
-      </div>
-    </div>
-  );
-}
